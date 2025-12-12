@@ -68,10 +68,13 @@
         /* Task Tile Styles */
         .task-tile { width: 70px; min-height: 40px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; position: relative; cursor: pointer; padding: 4px 0; background: transparent !important; border: none !important; box-shadow: none !important; transition: transform .15s ease, opacity .2s ease; }
         .task-tile:hover { transform: translateY(-2px); }
-        .task-tile .task-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        /* MODIFIED: task-badge hidden */
+        .task-tile .task-badge { display: none !important; }
+        /* MODIFIED: All task icons are green */
+        .task-tile .task-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #d1fae5 !important; color: #059669 !important; }
+
         .task-tile .task-label { margin-top: 4px; font-size: 0.65rem; font-weight: 600; color: #374151; text-align: center; line-height: 1.1; max-width: 70px; white-space: normal; }
-        .task-tile .task-badge { position: absolute; top: -3px; right: -2px; background: #ef4444; color: white; width: 16px; height: 16px; font-size: 0.55rem; font-weight: 700; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; z-index: 10; }
-        .pending .task-icon { background: #fee2e2 !important; color: #ef4444 !important; }
+        .pending .task-icon { background: #d1fae5 !important; color: #059669 !important; }
         .complete .task-icon { background: #d1fae5 !important; color: #059669 !important; }
         .task-dragging { opacity: 0.4 !important; transform: scale(1.05) !important; }
         .module-drop-target { outline: 3px dashed rgba(59,130,246,0.5); border-radius: 10px; transition: outline-color 0.12s ease; background-color: rgba(59,130,246,0.05); }
@@ -219,7 +222,7 @@
             text-align: left;
         }
         .audit-table th {
-            background-color: #add8e6; /* Light Blue */
+            background-color: #add8e6;
             font-weight: bold;
         }
         .audit-info {
@@ -238,6 +241,21 @@
             content: "Enter Workflow Name";
             color: #9ca3af;
             font-style: italic;
+        }
+        
+        /* New style for editable Day Part titles */
+        .editable-day-part {
+            cursor: pointer;
+            padding: 1px 4px;
+            border-radius: 4px;
+            transition: background-color 0.1s;
+        }
+        .editable-day-part:hover {
+             background-color: rgba(255, 255, 255, 0.2);
+        }
+        .editable-day-part[contenteditable="true"] {
+            outline: 1px dashed rgba(255, 255, 255, 0.7);
+            background-color: rgba(255, 255, 255, 0.1);
         }
         
     </style>
@@ -388,22 +406,28 @@
                                 </div>
                             </div>
 
-                        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-8">
+                        <div x-show="!hideStartOfDay"
+     class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-8">
                             <div class="section-header !py-2 !px-4" @click="toggleDayPart('Start of Day')">
                                 <div class="flex items-center gap-3">
                                     <div class="bg-white/10 p-1 rounded-md">
                                         <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-300" :class="isDayPartExpanded('Start of Day') ? 'rotate-180' : 'rotate-0'"></i>
                                     </div>
-                                    <h3 class="text-sm font-semibold">Start of Day</h3>
+                                    <h3 class="text-sm font-semibold">
+                                        <span class="editable-day-part"
+                                              x-text="'Start of Day'"
+                                              :contenteditable="editMode && !activeWorkflow.isDefault"
+                                              @blur="if(editMode && !activeWorkflow.isDefault) updateDayPartName('Start of Day', $event.target.textContent.trim())">
+                                            Start of Day
+                                        </span>
+                                    </h3>
                                 </div>
 
                                 <div class="flex items-center gap-3">
-                                    <div class="text-right">
-                                        <span id="start-of-day-count" class="text-xs font-bold text-white" x-text="getDayPartProgress('Start of Day').countText"></span>
-                                    </div>
-                                    <div class="header-progress-track h-2 w-32 bg-gray-700/50">
-                                        <div id="start-of-day-progress" class="header-progress-fill" :style="'width:' + getDayPartProgress('Start of Day').percent + '%'"></div>
-                                    </div>
+                                    <button x-show="editMode && !activeWorkflow.isDefault" @click.stop="removeDayPart('Start of Day')" 
+                                        class="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/20 transition" title="Delete Day Part">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
                                 </div>
                             </div>
 
@@ -446,7 +470,7 @@
                                                             @click="openTaskPopup(task)"
                                                             x-init="$nextTick(() => lucide.createIcons())">
                                                             
-                                                            <div x-show="!task.complete && task.badge > 0" class="task-badge" x-text="task.badge"></div>
+                                                            <div x-show="false" class="task-badge" x-text="task.badge"></div>
                                                             <div class="task-icon shadow-inner" :class="getTaskIconColor(task.id)">
                                                                 <i :data-lucide="task.icon" class="w-5 h-5"></i>
                                                             </div>
@@ -489,26 +513,27 @@
                         </div>
 
                         <template x-for="(dayPart, index) in activeWorkflow.customDayParts" :key="dayPart.name + index">
-                            <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-8">
+                            <div x-show="!hideStartOfDay"
+     class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-8">
                                 <div class="section-header !py-2 !px-4" @click="toggleDayPart(dayPart.name)">
                                     <div class="flex items-center gap-3">
                                         <div class="bg-white/10 p-1 rounded-md">
                                             <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-300" :class="isDayPartExpanded(dayPart.name) ? 'rotate-180' : 'rotate-0'"></i>
                                         </div>
-                                        <h3 class="text-sm font-semibold" x-text="dayPart.name"></h3>
+                                        <h3 class="text-sm font-semibold">
+                                            <span class="editable-day-part"
+                                                  x-text="dayPart.name"
+                                                  :contenteditable="editMode && !activeWorkflow.isDefault"
+                                                  @blur="if(editMode && !activeWorkflow.isDefault) updateDayPartName(dayPart.name, $event.target.textContent.trim())">
+                                                </span>
+                                        </h3>
                                     </div>
 
                                     <div class="flex items-center gap-3">
                                         <button x-show="editMode && !activeWorkflow.isDefault" @click.stop="removeDayPart(dayPart.name)" 
-                                            class="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/20 transition">
+                                            class="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/20 transition" title="Delete Day Part">
                                             <i data-lucide="trash-2" class="w-4 h-4"></i>
                                         </button>
-                                        <div class="text-right">
-                                            <span class="text-xs font-bold text-white" x-text="getDayPartProgress(dayPart.name).countText"></span>
-                                        </div>
-                                        <div class="header-progress-track h-2 w-32 bg-gray-700/50">
-                                            <div class="header-progress-fill" :style="'width:' + getDayPartProgress(dayPart.name).percent + '%'"></div>
-                                        </div>
                                     </div>
                                 </div>
 
@@ -551,7 +576,7 @@
                                                                 @click="openTaskPopup(task)"
                                                                 x-init="$nextTick(() => lucide.createIcons())">
                                                                 
-                                                                <div x-show="!task.complete && task.badge > 0" class="task-badge" x-text="task.badge"></div>
+                                                                <div x-show="false" class="task-badge" x-text="task.badge"></div>
                                                                 <div class="task-icon shadow-inner" :class="getTaskIconColor(task.id)">
                                                                 <i :data-lucide="task.icon" class="w-5 h-5"></i>
                                                                 </div>
@@ -586,22 +611,29 @@
                             </div>
                         </template>
 
-                        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div x-show="!hideCloseOfDay"
+     class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+
                             <div class="section-header !py-2 !px-4" @click="toggleDayPart('Close of Day')">
                                 <div class="flex items-center gap-3">
                                     <div class="bg-white/10 p-1 rounded-md">
                                         <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-300" :class="isDayPartExpanded('Close of Day') ? 'rotate-180' : 'rotate-0'"></i>
                                     </div>
-                                    <h3 class="text-sm font-semibold">Close of Day</h3>
+                                    <h3 class="text-sm font-semibold">
+                                        <span class="editable-day-part"
+                                              x-text="'Close of Day'"
+                                              :contenteditable="editMode && !activeWorkflow.isDefault"
+                                              @blur="if(editMode && !activeWorkflow.isDefault) updateDayPartName('Close of Day', $event.target.textContent.trim())">
+                                            Close of Day
+                                        </span>
+                                    </h3>
                                 </div>
 
                                 <div class="flex items-center gap-3">
-                                    <div class="text-right">
-                                        <span id="close-of-day-count" class="text-xs font-bold text-white" x-text="getDayPartProgress('Close of Day').countText"></span>
-                                    </div>
-                                    <div class="header-progress-track h-2 w-32 bg-gray-700/50">
-                                        <div id="close-of-day-progress" class="header-progress-fill" :style="'width:' + getDayPartProgress('Close of Day').percent + '%'"></div>
-                                    </div>
+                                    <button x-show="editMode && !activeWorkflow.isDefault" @click.stop="removeDayPart('Close of Day')" 
+                                        class="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/20 transition" title="Delete Day Part">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
                                 </div>
                             </div>
 
@@ -644,7 +676,7 @@
                                                             @click="openTaskPopup(task)"
                                                             x-init="$nextTick(() => lucide.createIcons())">
                                                             
-                                                            <div x-show="!task.complete && task.badge > 0" class="task-badge" x-text="task.badge"></div>
+                                                            <div x-show="false" class="task-badge" x-text="task.badge"></div>
                                                             <div class="task-icon shadow-inner" :class="getTaskIconColor(task.id)">
                                                                 <i :data-lucide="task.icon" class="w-5 h-5"></i>
                                                             </div>
@@ -798,25 +830,58 @@
             </div>
         </div>
 
-        <div x-show="addTaskPopupOpen || addGroupPopupOpen || workflowCreationModePopupOpen || addWorkflowPopupOpen || addDayPartPopupOpen || dayPartCreationModePopupOpen"
+        <div x-show="addTaskPopupOpen || selectGroupCreationModePopupOpen || workflowCreationModePopupOpen || addWorkflowPopupOpen || addDayPartPopupOpen || dayPartCreationModePopupOpen"
              class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[200] no-print">
             
-            <div x-show="addGroupPopupOpen" class="bg-white w-[420px] rounded-xl shadow-xl p-5 space-y-4" @click.stop>
-                <h2 class="text-lg font-semibold text-gray-800 mb-2">Add New Task Group</h2>
-                <div>
-                    <label for="group-name" class="block text-sm font-medium text-gray-700 mb-1">Group Name</label>
-                    <input type="text" id="group-name" x-model="newGroupName" 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                           placeholder="e.g., Daily Checklists, Safety Audits">
+            <div x-show="selectGroupCreationModePopupOpen" class="bg-white w-[550px] rounded-xl shadow-xl p-6 space-y-5" @click.stop>
+                <h2 class="text-xl font-bold text-gray-800 border-b pb-3">
+                    Add Task Group to <span class="text-blue-600" x-text="addTargetSection"></span>
+                </h2>
+                
+                <p class="text-sm text-gray-600">Select one or more System Modules to add as groups, or create a Custom Group.</p>
+
+                <div class="space-y-4">
+                    <h3 class="text-sm font-semibold text-gray-700">System Modules</h3>
+                    <div class="grid grid-cols-3 gap-3">
+                        <template x-for="module in defaultModules" :key="module.name">
+                            <label 
+                                x-show="!existingModulesInTargetDayPart.includes(module.name)"
+                                class="p-3 border rounded-lg cursor-pointer transition-all flex items-center gap-3"
+                                :class="selectedGroupsToAdd.includes(module.name) ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-500' : 'border-gray-200 bg-white hover:border-blue-300'"
+                            >
+                                <div class="w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm flex-shrink-0"
+                                    :class="module.colorClasses">
+                                    <i :data-lucide="module.icon" class="w-4 h-4"></i>
+                                </div>
+                                <input type="checkbox" :value="module.name" x-model="selectedGroupsToAdd" class="sr-only">
+                                <span class="text-sm font-medium text-gray-700" x-text="module.name"></span>
+                            </label>
+                        </template>
+
+                        <div x-show="existingModulesInTargetDayPart.length > 0" class="col-span-3 text-xs text-gray-400 italic mt-1">
+                            (Modules already added to this day part are hidden)
+                        </div>
+                    </div>
                 </div>
-                <div class="flex justify-end gap-3 mt-4">
-                    <button @click="addGroupPopupOpen=false; newGroupName='';" class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm font-medium">Close</button>
-                    <button @click="saveNewGroup()" :disabled="!newGroupName.trim()"
+
+                <div class="space-y-3 pt-3 border-t border-gray-200">
+                    <h3 class="text-sm font-semibold text-gray-700">Custom Group</h3>
+                    <div>
+                        <label for="custom-group-name" class="block text-xs font-medium text-gray-700 mb-1">Custom Group Name</label>
+                        <input type="text" id="custom-group-name" x-model="newCustomGroupName" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                               placeholder="e.g., Daily Checklists, Safety Audits">
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                    <button @click="selectGroupCreationModePopupOpen=false; selectedGroupsToAdd=[]; newCustomGroupName='';" class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm font-medium">Close</button>
+                    <button @click="saveSelectedGroups()" 
+                        :disabled="selectedGroupsToAdd.length === 0 && !newCustomGroupName.trim()"
                         class="px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors"
-                        :class="newGroupName.trim() ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-400 cursor-not-allowed'">Save</button>
+                        :class="(selectedGroupsToAdd.length > 0 || newCustomGroupName.trim()) ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-400 cursor-not-allowed'">Add Group(s)</button>
                 </div>
             </div>
-
             <div x-show="workflowCreationModePopupOpen" class="bg-white w-[500px] rounded-xl shadow-xl p-5 space-y-4" @click.stop>
                 <h2 class="text-lg font-semibold text-gray-800 mb-4">How to create the new Workflow?</h2>
 
@@ -991,7 +1056,12 @@
     </div>
 
     <script>
-        function workflowApp() {
+        function workflowApp() 
+        
+        {
+
+            
+
             // --- Dummy Report Data (Simplified for Audit Trail) ---
             const reportDummyData = [
                 { action: 'Template Created', performedBy: 'System Admin (ID: 001)', completionTime: '01:00 PM EST, 12/01/2025' },
@@ -1003,74 +1073,99 @@
             ];
 
             // --- Default Task Data matching Screenshots ---
-            const defaultStartOfDayTasks = [
+            const allSystemTasks = [
                 // Forecast
-                { id: 'review-forecast-sod', name: 'Review Forecast', app: 'Forecast', category: 'Start of Day', enabled: true, complete: false, icon: 'trending-up', badge: 1 },
-                { id: 'actual-sales-sod', name: 'Actual Sales', app: 'Forecast', category: 'Start of Day', enabled: true, complete: false, icon: 'line-chart', badge: 1 },
+                { id: 'review-forecast', name: 'Review Forecast', app: 'Forecast', category: 'General', enabled: true, complete: false, icon: 'trending-up', badge: 1 },
+                { id: 'actual-sales', name: 'Actual Sales', app: 'Forecast', category: 'General', enabled: true, complete: false, icon: 'line-chart', badge: 1 },
                 // Food Management
-                { id: 'ordering-sod', name: 'Ordering', app: 'Food Management', category: 'Start of Day', enabled: true, complete: false, icon: 'shopping-cart', badge: 2 },
-                { id: 'receiving-sod', name: 'Receiving', app: 'Food Management', category: 'Start of Day', enabled: true, complete: true, icon: 'truck', badge: 0 },
-                { id: 'transfer-sod', name: 'Transfer', app: 'Food Management', category: 'Start of Day', enabled: true, complete: true, icon: 'arrow-right-left', badge: 0 },
-                { id: 'waste-sod', name: 'Waste', app: 'Food Management', category: 'Start of Day', enabled: true, complete: true, icon: 'trash-2', badge: 0 },
+                { id: 'ordering', name: 'Ordering', app: 'Food Management', category: 'General', enabled: true, complete: false, icon: 'shopping-cart', badge: 2 },
+                { id: 'receiving', name: 'Receiving', app: 'Food Management', category: 'General', enabled: true, complete: true, icon: 'truck', badge: 0 },
+                { id: 'transfer', name: 'Transfer', app: 'Food Management', category: 'General', enabled: true, complete: true, icon: 'arrow-right-left', badge: 0 },
+                { id: 'waste', name: 'Waste', app: 'Food Management', category: 'General', enabled: true, complete: true, icon: 'trash-2', badge: 0 },
                 // Labor Management
-                { id: 'schedule-sod', name: 'Schedule', app: 'Labor Management', category: 'Start of Day', enabled: true, complete: true, icon: 'calendar-days', badge: 0 },
-                { id: 'pending-employees-sod', name: 'Pending Employees', app: 'Labor Management', category: 'Start of Day', enabled: true, complete: false, icon: 'users', badge: 4 },
-                { id: 'violation-sod', name: 'Violation', app: 'Labor Management', category: 'Start of Day', enabled: true, complete: false, icon: 'alert-triangle', badge: 1 },
-                { id: 'time-loss-sod', name: 'Time Loss Summary', app: 'Labor Management', category: 'Start of Day', enabled: true, complete: false, icon: 'percent', badge: 4 },
-                { id: 'time-off-request-sod', name: 'Time Off Request', app: 'Labor Management', category: 'Start of Day', enabled: true, complete: false, icon: 'user-x', badge: 2 },
-                { id: 'availability-request-sod', name: 'Availability Request', app: 'Labor Management', category: 'Start of Day', enabled: true, complete: false, icon: 'user-check', badge: 2 },
-                { id: 'swap-shift-approval-sod', name: 'Swap Shift Approval', app: 'Labor Management', category: 'Start of Day', enabled: true, complete: false, icon: 'repeat', badge: 2 },
+                { id: 'schedule', name: 'Schedule', app: 'Labor Management', category: 'General', enabled: true, complete: true, icon: 'calendar-days', badge: 0 },
+                { id: 'pending-employees', name: 'Pending Employees', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'users', badge: 4 },
+                { id: 'violation', name: 'Violation', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'alert-triangle', badge: 1 },
+                { id: 'time-loss', name: 'Time Loss Summary', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'percent', badge: 4 },
+                { id: 'time-off-request', name: 'Time Off Request', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'user-x', badge: 2 },
+                { id: 'availability-request', name: 'Availability Request', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'user-check', badge: 2 },
+                { id: 'swap-shift-approval', name: 'Swap Shift Approval', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'repeat', badge: 2 },
                 // Payroll Management
-                { id: 'punch-exception-sod', name: 'Punch Exceptions', app: 'Payroll Management', category: 'Start of Day', enabled: true, complete: false, icon: 'fingerprint', badge: 8 },
-                { id: 'punch-review-sod', name: 'Punch Review', app: 'Payroll Management', category: 'Start of Day', enabled: true, complete: false, icon: 'clipboard-check', badge: 2 },
-                { id: 'approvals-sod', name: 'Approvals', app: 'Payroll Management', category: 'Start of Day', enabled: true, complete: false, icon: 'check-square', badge: 22 },
-                { id: 'unbalanced-punches-sod', name: 'Unbalanced Punches', app: 'Payroll Management', category: 'Start of Day', enabled: true, complete: false, icon: 'divide', badge: 2 },
-                { id: 'mismatch-punch-sod', name: 'Mismatch Punch', app: 'Payroll Management', category: 'Start of Day', enabled: true, complete: false, icon: 'x-circle', badge: 1 },
+                { id: 'punch-exception', name: 'Punch Exceptions', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'fingerprint', badge: 8 },
+                { id: 'punch-review', name: 'Punch Review', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'clipboard-check', badge: 2 },
+                { id: 'approvals', name: 'Approvals', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'check-square', badge: 22 },
+                { id: 'unbalanced-punches', name: 'Unbalanced Punches', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'divide', badge: 2 },
+                { id: 'mismatch-punch', name: 'Mismatch Punch', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'x-circle', badge: 1 },
+                { id: 'misc-pay', name: 'Misc Pay', app: 'Payroll Management', category: 'General', enabled: true, complete: true, icon: 'wallet', badge: 0 },
+                { id: 'approaching-ot', name: 'Approaching OT', app: 'Payroll Management', category: 'General', enabled: true, complete: true, icon: 'clock-3', badge: 0 },
+                { id: 'payroll-summary', name: 'Payroll Summary', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'file-check', badge: 1 },
+                // Zip Inventory
+                { id: 'inventory', name: 'Inventory', app: 'Zip Inventory', category: 'General', enabled: true, complete: true, icon: 'clipboard-list', badge: 0 },
             ];
 
-            const defaultCloseOfDayTasks = [
-                // Food Management
-                { id: 'ordering-cod', name: 'Ordering', app: 'Food Management', category: 'Close of Day', enabled: true, complete: false, icon: 'shopping-cart', badge: 2 },
-                { id: 'receiving-cod', name: 'Receiving', app: 'Food Management', category: 'Close of Day', enabled: true, complete: true, icon: 'truck', badge: 0 },
-                { id: 'transfer-cod', name: 'Transfer', app: 'Food Management', category: 'Close of Day', enabled: true, complete: true, icon: 'arrow-right-left', badge: 0 },
-                { id: 'waste-cod', name: 'Waste', app: 'Food Management', category: 'Close of Day', enabled: true, complete: true, icon: 'trash-2', badge: 0 },
-                { id: 'inventory-cod', name: 'Inventory', app: 'Zip Inventory', category: 'Close of Day', enabled: true, complete: true, icon: 'clipboard-list', badge: 0 },
-                // Labor Management
-                { id: 'labor-violations-cod', name: 'Labor Violations', app: 'Labor Management', category: 'Close of Day', enabled: true, complete: false, icon: 'alert-triangle', badge: 1 },
-                { id: 'time-loss-cod', name: 'Time Loss Summary', app: 'Labor Management', category: 'Close of Day', enabled: true, complete: false, icon: 'percent', badge: 4 },
-                { id: 'time-off-request-cod', name: 'Time Off Request', app: 'Labor Management', category: 'Close of Day', enabled: true, complete: false, icon: 'user-x', badge: 2 },
-                { id: 'availability-request-cod', name: 'Availability Request', app: 'Labor Management', category: 'Close of Day', enabled: true, complete: false, icon: 'user-check', badge: 2 },
-                { id: 'swap-shift-approval-cod', name: 'Swap Shift Approval', app: 'Labor Management', category: 'Close of Day', enabled: true, complete: false, icon: 'repeat', badge: 2 },
-                // Payroll Management
-                { id: 'punch-exception-cod', name: 'Punch Exception', app: 'Payroll Management', category: 'Close of Day', enabled: true, complete: false, icon: 'fingerprint', badge: 15 },
-                { id: 'review-punches-cod', name: 'Review Punches', app: 'Payroll Management', category: 'Close of Day', enabled: true, complete: false, icon: 'clipboard-check', badge: 2 },
-                { id: 'misc-pay-cod', name: 'Misc Pay', app: 'Payroll Management', category: 'Close of Day', enabled: true, complete: true, icon: 'wallet', badge: 0 },
-                { id: 'approaching-ot-cod', name: 'Approaching OT', app: 'Payroll Management', category: 'Close of Day', enabled: true, complete: true, icon: 'clock-3', badge: 0 },
-                { id: 'payroll-summary-cod', name: 'Payroll Summary', app: 'Payroll Management', category: 'Close of Day', enabled: true, complete: false, icon: 'file-check', badge: 1 },
-                { id: 'unbalanced-punches-cod', name: 'Unbalanced Punches', app: 'Payroll Management', category: 'Close of Day', enabled: true, complete: false, icon: 'divide', badge: 3 },
-                { id: 'mismatch-punch-cod', name: 'Mismatch Punch', app: 'Payroll Management', category: 'Close of Day', enabled: true, complete: false, icon: 'x-circle', badge: 1 },
-            ];
-            
-            // Sidebar Tasks must have unique IDs across all categories to be searchable.
-            const predefinedSidebarTasks = [
-                // Forecast
-                { id: 'review-forecast', name: 'Review Forecast', app: 'Forecast', icon: 'trending-up' },
-                { id: 'actual-sales', name: 'Actual Sales', app: 'Forecast', icon: 'line-chart' },
-                // Food Management
-                { id: 'ordering', name: 'Ordering', app: 'Food Management', icon: 'shopping-cart' },
-                { id: 'receiving', name: 'Receiving', app: 'Food Management', icon: 'truck' },
-                { id: 'transfer', name: 'Transfer', app: 'Food Management', icon: 'arrow-right-left' },
-                { id: 'waste', name: 'Waste', app: 'Food Management', icon: 'trash-2' },
-                // Labor Management
-                { id: 'schedule', name: 'Schedule', app: 'Labor Management', icon: 'calendar-days' },
-                { id: 'pending-employees', name: 'Pending Employees', app: 'Labor Management', icon: 'users' },
-                { id: 'violation', name: 'Violation', app: 'Labor Management', icon: 'alert-triangle' },
-                // Payroll Management
-                { id: 'punch-exception', name: 'Punch Exceptions', app: 'Payroll Management', icon: 'fingerprint' },
-                { id: 'punch-review', name: 'Punch Review', app: 'Payroll Management', icon: 'clipboard-check' },
-                // Zip Inventory
-                { id: 'inventory', name: 'Inventory', app: 'Zip Inventory', icon: 'clipboard-list' },
-            ];
+            // Helper function to create a unique ID for a task copy
+            function createUniqueTaskCopy(task, newCategory, newApp = null) {
+                return {
+                    ...task,
+                    id: task.id + '-' + Date.now() + Math.floor(Math.random() * 100000), // Ensure unique ID
+                    app: newApp || task.app, // Allow renaming of the app/group
+                    category: newCategory, // Assign to the target Day Part
+                    complete: false, // Reset completion status
+                    badge: 0, // REMOVED COUNT OVER TASK ICON
+                    enabled: true,
+                    hidden: false,
+                };
+            }
+
+            // --- Initial Workflow Tasks (now seeded from allSystemTasks and tagged with Day Part)
+            const initialStartOfDayTasks = [
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'review-forecast'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'actual-sales'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'ordering'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'receiving'), 'Start of Day', 'Food Management'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'transfer'), 'Start of Day', 'Food Management'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'waste'), 'Start of Day', 'Food Management'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'schedule'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'pending-employees'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'violation'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'time-loss'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'time-off-request'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'availability-request'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'swap-shift-approval'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'punch-exception'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'punch-review'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'approvals'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'unbalanced-punches'), 'Start of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'mismatch-punch'), 'Start of Day'),
+            ].map(t => ({...t, complete: Math.random() < 0.5})); // Add variety
+
+            const initialCloseOfDayTasks = [
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'ordering'), 'Close of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'receiving'), 'Close of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'transfer'), 'Close of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'waste'), 'Close of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'inventory'), 'Close of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'violation'), 'Close of Day', 'Labor Management'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'time-loss'), 'Close of Day', 'Labor Management'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'time-off-request'), 'Close of Day', 'Labor Management'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'availability-request'), 'Close of Day', 'Labor Management'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'swap-shift-approval'), 'Close of Day', 'Labor Management'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'punch-exception'), 'Close of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'punch-review'), 'Close of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'misc-pay'), 'Close of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'approaching-ot'), 'Close of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'payroll-summary'), 'Close of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'unbalanced-punches'), 'Close of Day'),
+                createUniqueTaskCopy(allSystemTasks.find(t => t.id === 'mismatch-punch'), 'Close of Day'),
+            ].map(t => ({...t, complete: Math.random() < 0.5})); // Add variety
+
+            const allDefaultWorkflowTasks = [...initialStartOfDayTasks, ...initialCloseOfDayTasks];
+
+            const predefinedSidebarTasks = allSystemTasks.filter(t => [
+                'review-forecast', 'actual-sales', 'ordering', 'receiving', 'transfer', 'waste',
+                'schedule', 'pending-employees', 'violation', 'punch-exception', 'punch-review', 'inventory'
+            ].includes(t.id));
+
 
             const randomIcons = ['activity', 'airplay', 'award', 'coffee', 'gift', 'zap', 'shield', 'box', 'rocket', 'cloud', 'hard-hat', 'sun', 'moon', 'calendar-check', 'clipboard-list', 'bar-chart', 'dollar-sign', 'users-round'];
             const randomColors = ['bg-pink-600', 'bg-indigo-600', 'bg-green-600', 'bg-red-600', 'bg-yellow-600', 'bg-purple-600', 'bg-teal-600'];
@@ -1083,21 +1178,21 @@
                 'Zip Inventory': { icon: 'file-spreadsheet', colorClasses: 'bg-gradient-to-br from-green-500 to-green-600' },
             };
             
-            const allTasks = [...defaultStartOfDayTasks, ...defaultCloseOfDayTasks];
-            
             return {
                 // --- Core App State (Initialized for Safety) ---
                 currentView: 'summary', 
-                activeTab: 'editor', // NEW: Added activeTab state
+                activeTab: 'editor', 
                 editMode: false,
                 activeWorkflow: null, 
+                hideStartOfDay: false,
+hideCloseOfDay: false,
                 
                 // --- Summary Screen State ---
                 workflows: [
                     { 
                         id: 'wf-1', 
                         name: 'Default Workflow Template', 
-                        tasks: allTasks, 
+                        tasks: allDefaultWorkflowTasks, 
                         customModules: [], 
                         customDayParts: [], 
                         storeIds: ['S-101', 'S-102', 'S-103', 'S-107', 'S-108', 'S-109'], 
@@ -1109,7 +1204,7 @@
                     { 
                         id: 'wf-2', 
                         name: 'QSR Daily Checklist', 
-                        tasks: allTasks, 
+                        tasks: allDefaultWorkflowTasks, 
                         customModules: [], 
                         customDayParts: [], 
                         storeIds: ['S-104', 'S-105'], 
@@ -1121,7 +1216,7 @@
                     { 
                         id: 'wf-3', 
                         name: 'Evening Closeout', 
-                        tasks: defaultCloseOfDayTasks, 
+                        tasks: initialCloseOfDayTasks, 
                         customModules: [], 
                         customDayParts: [], 
                         storeIds: ['S-101', 'S-106'], 
@@ -1170,9 +1265,10 @@
                 dragSourceType: null,
                 dropTarget: { app: null, category: null, hoverTaskId: null },
                 dayPartExpansion: { 'Start of Day': true, 'Close of Day': true },
-                newGroupName: '',
-                newGroupSection: null,
-                addGroupPopupOpen: false,
+                selectGroupCreationModePopupOpen: false, 
+                selectedGroupsToAdd: [],
+                newCustomGroupName: '',
+                addTargetSection: null, // Used for selecting groups
                 activeTaskId: null,
                 taskSearchTerm: '',
                 availableSidebarTasks: [],
@@ -1180,30 +1276,44 @@
                 selectedTasksToAdd: [],
                 selectAllTasks: false,
                 addTargetModule: null,
-                addTargetSection: null,
                 
                 // --- Day Part Management State ---
-                dayPartCreationModePopupOpen: false, // NEW
+                dayPartCreationModePopupOpen: false, 
                 addDayPartPopupOpen: false,
                 newDayPartName: '',
                 dayPartCreationMode: 'blank', 
                 copySourceDayPart: null, 
 
                 // --- Task/Module Data ---
-                predefinedTasks: predefinedSidebarTasks, // Tasks available in the sidebar
-                defaultModules: [ // Modules hardcoded for display/grouping
+                predefinedTasks: predefinedSidebarTasks, 
+                defaultModules: [ 
                     { name: 'Forecast', icon: defaultModuleInfo['Forecast'].icon, colorClasses: defaultModuleInfo['Forecast'].colorClasses },
                     { name: 'Food Management', icon: defaultModuleInfo['Food Management'].icon, colorClasses: defaultModuleInfo['Food Management'].colorClasses },
                     { name: 'Labor Management', icon: defaultModuleInfo['Labor Management'].icon, colorClasses: defaultModuleInfo['Labor Management'].colorClasses },
                     { name: 'Payroll Management', icon: defaultModuleInfo['Payroll Management'].icon, colorClasses: defaultModuleInfo['Payroll Management'].colorClasses },
+                    { name: 'Zip Inventory', icon: defaultModuleInfo['Zip Inventory'].icon, colorClasses: defaultModuleInfo['Zip Inventory'].colorClasses },
                 ],
-
+                allSystemTasks: allSystemTasks, 
+                
                 // --- Utility Functions ---
                 getRandomIcon() {
                     return randomIcons[Math.floor(Math.random() * randomIcons.length)];
                 },
                 getRandomColorClass() {
                     return randomColors[Math.floor(Math.random() * randomColors.length)];
+                },
+
+                createUniqueTaskCopy(task, newCategory, newApp = null) {
+                    return {
+                        ...task,
+                        id: task.id + '-' + Date.now() + Math.floor(Math.random() * 100000), // Ensure unique ID
+                        app: newApp || task.app, // Allow renaming of the app/group
+                        category: newCategory, // Assign to the target Day Part
+                        complete: false, // Reset completion status
+                        badge: 0, // REMOVED COUNT OVER TASK ICON
+                        enabled: true,
+                        hidden: false,
+                    };
                 },
                 
                 // --- Init & Setup ---
@@ -1230,6 +1340,45 @@
                     }
                 },
                 
+                // --- Day Part Renaming Logic ---
+                updateDayPartName(oldName, newName) {
+                    if (!this.activeWorkflow || this.activeWorkflow.isDefault || !this.editMode) return;
+                    
+                    newName = newName.trim();
+                    if (!newName || newName === oldName) {
+                        // Restore the name if input is empty or unchanged
+                        this.$nextTick(() => {
+                            const editableSpan = this.$el.querySelector(`span[x-text="'${oldName}'"], span[x-text="dayPart.name"]`);
+                            if (editableSpan) {
+                                editableSpan.textContent = oldName;
+                            }
+                        });
+                        return;
+                    }
+
+                    // 1. Update the tasks (both system and custom groups/modules rely on this category property)
+                    this.activeWorkflow.tasks.filter(t => t.category === oldName)
+                        .forEach(t => t.category = newName);
+
+                    // 2. Update custom modules/groups
+                    this.activeWorkflow.customModules.filter(m => m.category === oldName)
+                        .forEach(m => m.category = newName);
+
+                    // 3. Update the custom day part list if it's a custom day part
+                    const customPart = this.activeWorkflow.customDayParts.find(d => d.name === oldName);
+                    if (customPart) {
+                        customPart.name = newName;
+                    }
+
+                    // 4. Update the expansion state key (if applicable)
+                    if (this.dayPartExpansion.hasOwnProperty(oldName)) {
+                        this.dayPartExpansion[newName] = this.dayPartExpansion[oldName];
+                        delete this.dayPartExpansion[oldName];
+                    }
+
+                    this.updateTaskProgress();
+                },
+
                 // --- PDF Report Generation ---
                 generateAuditReport(workflow) {
                     const today = new Date().toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
@@ -1335,6 +1484,11 @@
                     if (!this.activeWorkflow) return [];
                     return ['Start of Day', 'Close of Day', ...this.activeWorkflow.customDayParts.map(d => d.name)];
                 },
+
+                // NEW: Modules already added to the current day part (custom groups OR system modules)
+                get existingModulesInTargetDayPart() {
+                    return this.activeWorkflow ? this.activeWorkflow.customModules.filter(m => m.category === this.addTargetSection).map(m => m.name) : [];
+                },
                 
                 // --- Workflow Summary/Creation Logic ---
                 openWorkflowCreationPopup() {
@@ -1371,7 +1525,7 @@
                                 ...task,
                                 id: task.id + '-' + Date.now() + Math.floor(Math.random() * 1000), 
                                 complete: false,
-                                badge: task.badge > 0 ? Math.floor(Math.random() * 5) + 1 : 0, 
+                                badge: 0, // REMOVED COUNT OVER TASK ICON
                             }));
                             initialCustomModules = JSON.parse(JSON.stringify(sourceWorkflow.customModules));
                             initialCustomDayParts = JSON.parse(JSON.stringify(sourceWorkflow.customDayParts));
@@ -1489,7 +1643,6 @@
                 },
 
                 // --- Workflow Day Part Logic ---
-                // MODIFIED: Show mode selection first
                 openAddDayPartPopup() {
                     if (!this.activeWorkflow || this.activeWorkflow.isDefault) return; 
                     this.dayPartCreationModePopupOpen = true;
@@ -1500,7 +1653,6 @@
                     this.$nextTick(() => lucide.createIcons());
                 },
 
-                // NEW: Show details popup after mode selection
                 openAddDayPartDetailsPopup(mode, copySourcePart) {
                     this.dayPartCreationMode = mode;
                     this.copySourceDayPart = copySourcePart;
@@ -1542,7 +1694,7 @@
                             newTask.id = task.id + '-' + Date.now() + Math.floor(Math.random() * 1000); // Unique ID
                             newTask.category = name; // Assign to the new Day Part
                             newTask.complete = false;
-                            newTask.badge = Math.floor(Math.random() * 5); // Regenerate badge count
+                            newTask.badge = 0; // REMOVED COUNT OVER TASK ICON
                             this.activeWorkflow.tasks.push(newTask);
                         });
                     }
@@ -1555,19 +1707,34 @@
                     this.updateTaskProgress();
                 },
                 
+                // MODIFIED: Logic to remove all associated data, resetting default sections and removing custom ones.
                 removeDayPart(dayPartName) {
-                    if (!this.activeWorkflow || this.activeWorkflow.isDefault) return; 
-                    if (!confirm(`Are you sure you want to remove the entire Day Part: ${dayPartName}? This will remove all associated tasks and groups.`)) {
-                        return;
-                    }
+    if (dayPartName === "Start of Day") {
+        this.hideStartOfDay = true;
+        // Also remove all tasks of this day part
+        this.activeWorkflow.tasks = this.activeWorkflow.tasks.filter(
+            t => t.category !== "Start of Day"
+        );
+        return;
+    }
 
-                    this.activeWorkflow.customDayParts = this.activeWorkflow.customDayParts.filter(d => d.name !== dayPartName);
-                    this.activeWorkflow.tasks = this.activeWorkflow.tasks.filter(t => t.category !== dayPartName);
-                    this.activeWorkflow.customModules = this.activeWorkflow.customModules.filter(m => m.category !== dayPartName);
-                    delete this.dayPartExpansion[dayPartName];
+    if (dayPartName === "Close of Day") {
+        this.hideCloseOfDay = true;
+        // Remove tasks
+        this.activeWorkflow.tasks = this.activeWorkflow.tasks.filter(
+            t => t.category !== "Close of Day"
+        );
+        return;
+    }
 
-                    this.updateTaskProgress();
-                },
+    // Custom Day Part
+    this.activeWorkflow.customDayParts =
+        this.activeWorkflow.customDayParts.filter(dp => dp.name !== dayPartName);
+
+    this.activeWorkflow.tasks = this.activeWorkflow.tasks.filter(
+        t => t.category !== dayPartName
+    );
+},
 
                 // --- Task Logic (Safely handle property access) ---
                 get groupedSidebarTasks() {
@@ -1585,31 +1752,14 @@
                 },
                 
                 getTaskIconColor(taskId) {
-                    const task = this.tasks.find(t => t.id === taskId) || this.predefinedTasks.find(t => t.id === taskId.split('-')[0]);
-                    if (!task) return 'bg-gray-100 text-gray-600';
-
-                    switch(task.app) {
-                        case 'Forecast': return 'bg-blue-100 text-blue-600';
-                        case 'Food Management': return 'bg-purple-100 text-purple-600';
-                        case 'Labor Management': return 'bg-amber-100 text-amber-600';
-                        case 'Payroll Management': return 'bg-indigo-100 text-indigo-600';
-                        case 'Zip Inventory': return 'bg-green-100 text-green-600'; 
-                        default: return 'bg-gray-100 text-gray-600';
-                    }
+                    return 'bg-green-100 text-green-600';
                 },
                 
                 isDayPartExpanded(dayPartName) { return this.dayPartExpansion[dayPartName] === true; },
                 toggleDayPart(dayPartName) { this.dayPartExpansion[dayPartName] = !this.dayPartExpansion[dayPartName]; },
 
                 getDayPartProgress(dayPartName) {
-                    const relevant = this.tasks.filter(t => t.category === dayPartName && t.enabled);
-                    const total = relevant.length;
-                    const done = relevant.filter(t => t.complete).length;
-                    const percent = total === 0 ? 0 : (done / total) * 100;
-                    return {
-                        countText: `${done}/${total}`,
-                        percent: percent.toFixed(0)
-                    };
+                    return { countText: `0/0`, percent: 0 }; 
                 },
 
                 getWorkflowModules(category) {
@@ -1621,20 +1771,10 @@
                     // 2. Identify modules that have tasks assigned in this category (system or user-added)
                     const modulesFromTasks = this.generateModulesFromTasks(this.activeWorkflow.tasks, category);
 
-                    // 3. Add default system modules (Forecast, Food, Labor, Payroll) 
-                    //    if they exist in the default list OR in the modules from tasks
+                    // 3. Add default system modules (Forecast, Food, Labor, Payroll, Zip Inventory) 
                     const isMajorDayPart = (category === 'Start of Day' || category === 'Close of Day');
                     
                     const systemModules = [...this.defaultModules];
-                    
-                    if (category === 'Close of Day') {
-                        // Add Zip Inventory only for Close of Day
-                        systemModules.push({ 
-                            name: 'Zip Inventory', 
-                            icon: defaultModuleInfo['Zip Inventory'].icon, 
-                            colorClasses: defaultModuleInfo['Zip Inventory'].colorClasses 
-                        });
-                    }
                     
                     systemModules.forEach(m => {
                         const hasTaskModule = modulesFromTasks.some(tm => tm.name === m.name);
@@ -1674,15 +1814,10 @@
                 updateTaskProgressForWorkflow(workflow) {
                     const categories = ['Start of Day', 'Close of Day', ...workflow.customDayParts.map(dp => dp.name)];
                     categories.forEach(cat => {
-                        const relevant = workflow.tasks.filter(t => t.category === cat && t.enabled);
-                        const total = relevant.length;
-                        const done = relevant.filter(t => t.complete).length;
-                        const percent = total === 0 ? 0 : (done / total) * 100;
-                        
                         const catKey = cat.toLowerCase().replace(/\s/g, '').replace(/[^a-z0-9]/g, '');
                         workflow[`${catKey}Progress`] = {
-                            countText: `${done}/${total}`,
-                            percent: percent.toFixed(0)
+                            countText: `0/0`,
+                            percent: 0
                         };
                     });
                 },
@@ -1692,19 +1827,6 @@
                     this.updateTaskProgressForWorkflow(this.activeWorkflow);
 
                     this.$nextTick(() => {
-                        const categories = ['Start of Day', 'Close of Day', ...this.activeWorkflow.customDayParts.map(dp => dp.name)];
-                        categories.forEach(cat => {
-                            const catKey = cat.toLowerCase().replace(/\s/g, '').replace(/[^a-z0-9]/g, '');
-                            const data = this.activeWorkflow[`${catKey}Progress`];
-                            const idKey = cat.toLowerCase().replace(/\s/g, '-').replace(/[^a-z0-9-]/g, '');
-
-                            if (data) {
-                                const bar = document.getElementById(`${idKey}-progress`);
-                                const txt = document.getElementById(`${idKey}-count`);
-                                if (bar) bar.style.width = `${data.percent}%`;
-                                if (txt) txt.innerText = data.countText;
-                            }
-                        });
                         lucide.createIcons();
                     });
                 },
@@ -1723,7 +1845,7 @@
                     module.name = newName;
                 },
                 
-                // --- Drag & Drop Logic (Same implementation, includes null/default checks) ---
+                // --- Drag & Drop Logic (No functional change needed) ---
                 dragStart(evt, id, type) {
                     if (!this.activeWorkflow || !this.editMode || this.activeWorkflow.isDefault) return; 
                     this.dragSourceType = type;
@@ -1785,17 +1907,7 @@
                     if (this.dragSourceType === 'sidebarTask') {
                         const sidebarTask = this.predefinedTasks.find(t => t.id === draggedId);
                         if (!sidebarTask) return;
-                        this.activeWorkflow.tasks.push({
-                            id: sidebarTask.id + '-' + Date.now() + Math.floor(Math.random() * 1000),
-                            name: sidebarTask.name,
-                            icon: sidebarTask.icon,
-                            app: app,
-                            category: category,
-                            enabled: true,
-                            hidden: false,
-                            complete: false,
-                            badge: Math.floor(Math.random() * 5),
-                        });
+                        this.activeWorkflow.tasks.push(this.createUniqueTaskCopy(sidebarTask, category, app));
                         this.dragEnd();
                         this.updateTaskProgress();
                         return;
@@ -1824,17 +1936,7 @@
                     if (this.dragSourceType === 'sidebarTask') {
                         const sidebarTask = this.predefinedTasks.find(t => t.id === draggedId);
                         if (!sidebarTask) return;
-                        const newTask = {
-                            id: sidebarTask.id + '-' + Date.now() + Math.floor(Math.random() * 1000),
-                            name: sidebarTask.name,
-                            icon: sidebarTask.icon,
-                            app: targetTask.app,
-                            category: targetTask.category,
-                            enabled: true,
-                            hidden: false,
-                            complete: false,
-                            badge: Math.floor(Math.random() * 5),
-                        };
+                        const newTask = this.createUniqueTaskCopy(sidebarTask, targetTask.category, targetTask.app);
                         this.activeWorkflow.tasks.splice(targetIndex, 0, newTask);
                         this.dragEnd();
                         this.updateTaskProgress();
@@ -1873,41 +1975,76 @@
                     };
                 },
                 
-                // --- Add Group / Add Task Logic (Same implementation, includes null/default checks) ---
+                // --- Add Group Logic ---
                 openAddGroupPopup(section) {
                     if (!this.activeWorkflow || this.activeWorkflow.isDefault) return; 
-                    this.newGroupSection = section;
-                    this.newGroupName = '';
-                    this.addGroupPopupOpen = true;
+                    this.addTargetSection = section; 
+                    this.selectedGroupsToAdd = []; 
+                    this.newCustomGroupName = ''; 
+                    this.selectGroupCreationModePopupOpen = true; 
+                    this.$nextTick(() => lucide.createIcons());
                 },
 
-                saveNewGroup() {
+                // 2. Process selections from the new popup - NOW INCLUDES TASK COPYING
+                saveSelectedGroups() {
                     if (!this.activeWorkflow || this.activeWorkflow.isDefault) return; 
-                    const name = this.newGroupName.trim();
-                    const section = this.newGroupSection;
-                    
-                    if (!name || !section) return;
-
-                    const isDuplicate = this.activeWorkflow.customModules.some(m => m.name.toLowerCase() === name.toLowerCase() && m.category === section);
-                    if (isDuplicate) {
-                        alert(`A group named "${name}" already exists in ${section}. Please choose a different name.`);
+                    if (this.selectedGroupsToAdd.length === 0 && !this.newCustomGroupName.trim()) {
+                        alert('Please select at least one module or provide a name for a custom group.');
                         return;
                     }
 
-                    this.activeWorkflow.customModules.push({
-                        name: name,
-                        icon: this.getRandomIcon(), 
-                        colorClasses: this.getRandomColorClass(), 
-                        category: section,
-                        customGroup: true,
+                    const section = this.addTargetSection;
+                    const existingGroupNames = this.activeWorkflow.customModules
+                        .filter(m => m.category === section)
+                        .map(m => m.name.toLowerCase());
+
+                    // --- 1. Add System Modules and their tasks ---
+                    this.selectedGroupsToAdd.forEach(moduleName => {
+                        if (!existingGroupNames.includes(moduleName.toLowerCase())) {
+                            const moduleInfo = this.defaultModules.find(m => m.name === moduleName);
+                            if (moduleInfo) {
+                                // A. Add the Module/Group definition
+                                this.activeWorkflow.customModules.push({
+                                    name: moduleName,
+                                    icon: moduleInfo.icon,
+                                    colorClasses: moduleInfo.colorClasses, 
+                                    category: section,
+                                    customGroup: false, 
+                                });
+
+                                // B. Find and copy relevant system tasks to the workflow
+                                const tasksToCopy = this.allSystemTasks.filter(t => t.app === moduleName);
+                                tasksToCopy.forEach(task => {
+                                    this.activeWorkflow.tasks.push(this.createUniqueTaskCopy(task, section));
+                                });
+                            }
+                        } 
                     });
 
-                    this.addGroupPopupOpen = false;
-                    this.newGroupName = '';
-                    this.newGroupSection = null;
-                    this.$nextTick(() => lucide.createIcons());
+                    // --- 2. Add Custom Group ---
+                    const customName = this.newCustomGroupName.trim();
+                    if (customName) {
+                        if (!existingGroupNames.includes(customName.toLowerCase())) {
+                            this.activeWorkflow.customModules.push({
+                                name: customName,
+                                icon: this.getRandomIcon(), 
+                                colorClasses: this.getRandomColorClass(), 
+                                category: section,
+                                customGroup: true,
+                            });
+                        } else {
+                            alert(`A group named "${customName}" already exists in ${section}. Skipping custom group.`);
+                        }
+                    }
+
+                    this.selectGroupCreationModePopupOpen = false;
+                    this.selectedGroupsToAdd = [];
+                    this.newCustomGroupName = '';
+                    this.addTargetSection = null;
+                    this.updateTaskProgress(); // Recalculate progress to show new tasks/groups
                 },
                 
+                // --- Add Task Logic ---
                 openAddTaskPopup(module, section) {
                     if (!this.activeWorkflow || this.activeWorkflow.isDefault) return; 
                     this.addTargetModule = module;
@@ -1915,6 +2052,7 @@
                     this.selectedTasksToAdd = [];
                     this.selectAllTasks = false;
                     
+                    // Filter tasks already in the module (using base ID)
                     const tasksInModuleBaseIds = this.getModuleTasks(module, section).map(t => t.id.split('-')[0]); 
                     this.availableSidebarTasks = this.predefinedTasks.filter(t => !tasksInModuleBaseIds.includes(t.id));
 
@@ -1939,17 +2077,10 @@
                         const sourceTask = this.predefinedTasks.find(t => t.id === taskId);
 
                         if (sourceTask) {
-                            this.activeWorkflow.tasks.push({
-                                id: sourceTask.id + '-' + Date.now() + Math.floor(Math.random() * 1000), 
-                                name: sourceTask.name,
-                                icon: sourceTask.icon,
-                                app: this.addTargetModule,
-                                category: this.addTargetSection,
-                                enabled: true,
-                                hidden: false,
-                                complete: false,
-                                badge: Math.floor(Math.random() * 5),
-                            });
+                            // Use the utility function to properly copy and assign
+                            this.activeWorkflow.tasks.push(
+                                this.createUniqueTaskCopy(sourceTask, this.addTargetSection, this.addTargetModule)
+                            );
                         }
                     });
 
