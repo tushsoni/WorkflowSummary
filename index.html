@@ -1,0 +1,1582 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workflow Summary</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root{
+            --brand-navy: #071a36;
+            --tab-blue: #2563eb;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .fixed-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 56px;
+            z-index: 50;
+            background-color: var(--brand-navy);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            color: white;
+        }
+        .fixed-sidebar {
+            position: fixed;
+            top: 56px;
+            left: 0;
+            bottom: 0;
+            width: 56px;
+            background-color: var(--brand-navy);
+            z-index: 40;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+        .main-layout {
+            padding-top: 56px;
+            padding-left: 56px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Workflow Detail Styles (Compact and Timeline) */
+        .timeline-container { position: relative; padding-left: 36px !important; transition: all 0.3s ease; }
+        .sod-inner.timeline-container.bg-white { padding: 1rem !important; }
+        .timeline-line { position: absolute; left: 18px !important; top: 10px; bottom: 10px; width: 2px !important; background-color: #e2e8f0; z-index: 0; }
+        .section-header { background-color: #234faf; color: white; padding: 6px 10px !important; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-radius: 0.5rem 0.5rem 0 0; min-height: 34px !important;}
+        .section-header h3 { font-size: 0.76rem !important; }
+        .header-progress-track { width: 150px; height: 5px !important; background-color: #374151; border-radius: 9999px; overflow: hidden; }
+        .header-progress-fill { height: 100%; background: linear-gradient(135deg, #facc15 0%, #a3e635 50%, #4ade80 100%); transition: width 0.5s ease; }
+        .rotate-180 { transform: rotate(180deg); transition: transform 0.3s; }
+        
+        /* Task Tile Styles */
+        .task-tile { width: 70px; min-height: 40px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; position: relative; cursor: pointer; padding: 4px 0; background: transparent !important; border: none !important; box-shadow: none !important; transition: transform .15s ease, opacity .2s ease; }
+        .task-tile:hover { transform: translateY(-2px); }
+        .task-tile .task-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .task-tile .task-label { margin-top: 4px; font-size: 0.65rem; font-weight: 600; color: #374151; text-align: center; line-height: 1.1; max-width: 70px; white-space: normal; }
+        .task-tile .task-badge { position: absolute; top: -3px; right: -2px; background: #ef4444; color: white; width: 16px; height: 16px; font-size: 0.55rem; font-weight: 700; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid white; z-index: 10; }
+        .pending .task-icon { background: #fee2e2 !important; color: #ef4444 !important; }
+        .complete .task-icon { background: #d1fae5 !important; color: #059669 !important; }
+        .task-dragging { opacity: 0.4 !important; transform: scale(1.05) !important; }
+        .module-drop-target { outline: 3px dashed rgba(59,130,246,0.5); border-radius: 10px; transition: outline-color 0.12s ease; background-color: rgba(59,130,246,0.05); }
+        .task-drop-hover { outline: 2px solid #3b82f6 !important; box-shadow: 0 0 0 4px rgba(59,130,246,0.3) !important; transform: translateY(-2px); }
+        
+        /* Module Icon Styling (Refined Vertical Alignment) */
+        .module-icon-wrapper { padding-left: 0 !important; }
+        /* Adjusted left offset to perfectly center the 34px icon container over the 2px line at left: 18px (18 - 17 = 1) */
+        /* Adjusted top offset to vertically center the icon relative to the module name/task bar */
+        .module-icon-wrapper > .absolute { position: absolute; left: -1px !important; top: -1px !important;} 
+        .module-icon-wrapper > .absolute div { width: 34px !important; height: 34px !important; border-radius: 10px !important; }
+        .module-icon-wrapper > .absolute i { width: 16px !important; height: 16px !important; }
+
+        .add-task-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #f9fafb;
+            color: #2563eb;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: 1px solid #d0d7e6;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            transition: all 0.18s ease;
+        }
+
+        .add-task-button:hover {
+            background: #eef4ff;
+            border-color: #b6c8ff;
+            color: #1d4ed8;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 6px rgba(0,0,0,0.08);
+        }
+
+        /* --- STYLES FOR MODERN/COMPACT SUMMARY TILE --- */
+        .modern-tile {
+            position: relative;
+            background: white;
+            border-radius: 1.25rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border: 1px solid #e5e7eb;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modern-tile:hover {
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            transform: translateY(-3px);
+        }
+        
+        .icon-summary-bubble {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.75rem;
+            font-weight: 700;
+            border: 2px solid white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: all 0.2s ease;
+        }
+        
+        .icon-summary-bubble:hover {
+             z-index: 10;
+             transform: scale(1.1);
+        }
+        
+        .module-icon-bubble {
+            width: 30px;
+            height: 30px;
+            border-radius: 0.5rem;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+
+    <div x-data="workflowApp()" x-init="init()" class="min-h-screen">
+
+        <header class="fixed-header flex items-center justify-between px-4">
+            <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2">
+                    <div class="h-8 w-8 rounded-full border-2 border-white/20 flex items-center justify-center bg-white/10 backdrop-blur-sm">
+                        <i data-lucide="layout-grid" class="w-5 h-5 text-white"></i>
+                    </div>
+                    <span class="text-white font-bold text-lg leading-tight tracking-tight">Workflow Manager</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <button class="bg-white/10 backdrop-blur text-white border border-white/20 px-4 py-1.5 rounded-full text-sm font-medium flex items-center gap-2 hover:bg-white/20 transition-all shadow-sm">
+                    <i data-lucide="store" class="w-4 h-4"></i>
+                    99999
+                    <i data-lucide="chevron-down" class="w-3 h-3 opacity-70"></i>
+                </button>
+            </div>
+        </header>
+
+        <aside class="fixed-sidebar">
+            <div class="flex flex-col gap-4 w-full items-center pt-4">
+                <button class="p-2 bg-white/10 text-white rounded-xl shadow-lg border border-white/10 hover:bg-white/20 transition-all">
+                    <i data-lucide="chevron-right" class="w-5 h-5"></i>
+                </button>
+                <div class="w-8 h-0.5 bg-white/10 rounded-full my-2"></div>
+                <button class="p-2 text-white/60 hover:text-white transition-colors" @click="currentView = 'summary'">
+                    <i data-lucide="layout-grid" class="w-5 h-5"></i>
+                </button>
+                <button x-show="currentView === 'detail'" @click="sidebarOpen = true" class="p-2 text-white/60 hover:text-white transition-colors">
+                    <i data-lucide="list-checks" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </aside>
+
+        <div class="main-layout">
+            <div class="flex-1 px-8 pb-16 w-full max-w-[1600px] mx-auto pt-6">
+
+                <div x-show="currentView === 'summary'">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                        <i data-lucide="layout-dashboard" class="w-6 h-6 text-blue-600"></i>
+                        Workflow Templates
+                    </h2>
+                    
+                    <button @click="openAddWorkflowPopup()" class="add-task-button !bg-blue-600 !text-white !border-blue-700 hover:!bg-blue-700 mb-8">
+                        <i data-lucide="plus-circle" class="w-5 h-5"></i>
+                        Add New Workflow Template
+                    </button>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        <template x-for="workflow in workflows" :key="workflow.id">
+                            <div class="modern-tile">
+                                
+                                <div class="p-4 pb-3 flex items-start justify-between">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 flex items-center justify-center rounded-lg text-white shadow-md"
+                                            :class="workflow.iconColor">
+                                            <i :data-lucide="workflow.icon" class="w-5 h-5"></i>
+                                        </div>
+                                        <div class="flex-1">
+                                            <h3 class="text-base font-bold text-gray-900 truncate max-w-full hover:bg-gray-100 px-1 rounded transition-colors cursor-pointer"
+                                                :contenteditable="true"
+                                                @blur="updateWorkflowName(workflow, $event.target.textContent.trim())"
+                                                x-text="workflow.name">
+                                            </h3>
+                                            <p class="text-xs font-medium text-gray-500 flex items-center gap-1 mt-0.5">
+                                                <i data-lucide="map-pin" class="w-3 h-3"></i>
+                                                <span x-text="workflow.storeIds.length + ' Assigned Stores'"></span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button @click="editWorkflow(workflow.id)" class="p-1 rounded-full text-blue-500 hover:bg-blue-50 transition">
+                                        <i data-lucide="edit-3" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                                
+                                <div class="px-4 pt-3 pb-4 flex-1">
+                                    <h4 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Assigned Stores:</h4>
+                                    <div class="flex flex-wrap gap-1 max-h-12 overflow-y-auto">
+                                        <template x-for="storeId in workflow.storeIds.slice(0, 4)" :key="storeId">
+                                            <span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium" x-text="storeId"></span>
+                                        </template>
+                                        <span x-show="workflow.storeIds.length > 4" class="px-2 py-0.5 bg-gray-100 text-gray-700 text-xs rounded-full font-medium">
+                                            +<span x-text="workflow.storeIds.length - 4"></span> more
+                                        </span>
+                                        <span x-show="workflow.storeIds.length === 0" class="text-xs text-gray-400">No stores assigned.</span>
+                                    </div>
+                                </div>
+
+                                <div class="flex justify-between p-4 pt-3 bg-gray-50 border-t border-gray-100">
+                                    <button @click="openAssignStoresPopup(workflow.id)" class="flex-1 mr-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-green-500 hover:bg-green-600 text-white flex items-center justify-center gap-1 transition-all">
+                                        <i data-lucide="store" class="w-4 h-4"></i>
+                                        Assign Stores
+                                    </button>
+                                    <button @click="editWorkflow(workflow.id)" class="flex-1 ml-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-1 transition-all">
+                                        <i data-lucide="layout-list" class="w-4 h-4"></i>
+                                        Edit
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    </div>
+
+                <div x-show="currentView === 'detail'" class="pt-4">
+                    <div class="flex items-center justify-between mb-6">
+                        <h2 class="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                            <button @click="currentView = 'summary'" class="p-1 rounded-full text-gray-400 hover:text-blue-600 hover:bg-gray-100 transition">
+                                <i data-lucide="arrow-left" class="w-5 h-5"></i>
+                            </button>
+                            Workflow Editor: <span x-text="activeWorkflow.name" class="text-blue-600 ml-2"></span>
+                        </h2>
+                        
+                        <div class="flex items-center gap-3">
+                            <button @click="openAddDayPartPopup()"
+                                class="add-task-button !bg-indigo-600 !text-white !border-indigo-700 hover:!bg-indigo-700">
+                                <i data-lucide="plus-circle" class="w-4 h-4"></i>
+                                Add Day Part
+                            </button>
+
+                            <button @click="editMode = !editMode"
+                                :class="editMode ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'"
+                                class="px-4 py-2 text-white rounded-lg font-semibold hover:shadow-md transition-all active:scale-95 flex items-center gap-2">
+                                <i :data-lucide="editMode ? 'thumbs-up' : 'edit-3'" class="w-4 h-4"></i>
+                                <span x-text="editMode ? 'Save Changes' : 'Edit Workflow'"></span>
+                            </button>
+
+                             <button x-show="!sidebarOpen" @click="sidebarOpen = true" 
+                                class="p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg hover:shadow-md transition-all active:scale-95">
+                                <i data-lucide="list-checks" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="pb-16">
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-8">
+                        <div class="section-header !py-2 !px-4" @click="toggleDayPart('Start of Day')">
+                            <div class="flex items-center gap-3">
+                                <div class="bg-white/10 p-1 rounded-md">
+                                    <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-300" :class="isDayPartExpanded('Start of Day') ? 'rotate-180' : 'rotate-0'"></i>
+                                </div>
+                                <h3 class="text-sm font-semibold">Start of Day</h3>
+                            </div>
+
+                            <div class="flex items-center gap-3">
+                                <div class="text-right">
+                                    <span id="start-of-day-count" class="text-xs font-bold text-white" x-text="getDayPartProgress('Start of Day').countText"></span>
+                                </div>
+                                <div class="header-progress-track h-2 w-32 bg-gray-700/50">
+                                    <div id="start-of-day-progress" class="header-progress-fill" :style="'width:' + getDayPartProgress('Start of Day').percent + '%'"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div x-show="isDayPartExpanded('Start of Day')" x-collapse class="p-4 sod-inner timeline-container bg-white">
+                            <div class="timeline-line"></div>
+                            
+                            <template x-for="module in getWorkflowModules('Start of Day')" :key="module.name">
+                                <div class="relative mb-4 module-icon-wrapper" x-show="hasVisibleTasks(module.name, 'Start of Day') || module.customGroup">
+                                    <div class="absolute left-0 top-2">
+                                        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ring-4 ring-white"
+                                            :class="module.colorClasses">
+                                            <i :data-lucide="module.icon" class="w-5 h-5"></i>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex flex-col gap-2 pl-11">
+                                        <div class="flex items-center gap-4">
+                                            <h4 class="text-sm font-bold text-gray-900" 
+                                                :contenteditable="editMode"
+                                                @blur="if(editMode) updateModuleName(module, $event.target.textContent.trim())"
+                                                x-text="module.name"></h4>
+
+                                            <div class="flex flex-wrap gap-2 p-1 rounded-lg transition-all min-h-[40px] flex-1"
+                                                @dragover.prevent="dragOverModule($event, module.name, 'Start of Day')"
+                                                @dragenter.prevent="dragEnterModule($event, module.name, 'Start of Day')"
+                                                @dragleave.prevent="dragLeaveModule($event, module.name, 'Start of Day')"
+                                                @drop.prevent="dropToModule($event, module.name, 'Start of Day')"
+                                                :class="{ 'module-drop-target': isDropTarget(module.name, 'Start of Day') }">
+
+                                                <template x-for="task in getModuleTasks(module.name, 'Start of Day')" :key="task.id">
+                                                    <div x-show="!task.hidden"
+                                                        :class="getTaskCardClass(task, activeTaskId, draggedTaskId)"
+                                                        class="task-tile"
+                                                        :draggable="editMode"
+                                                        @dragstart="if (editMode) dragStart($event, task.id, 'task')"
+                                                        @dragend="if (editMode) dragEnd($event)"
+                                                        @dragover.prevent.stop="if (editMode) dragOverTask($event, task.id)"
+                                                        @dragleave.prevent.stop="if (editMode) dragLeaveTask($event, task.id)"
+                                                        @drop.prevent.stop="if (editMode) dropOnTask($event, task.id)"
+                                                        @click="openTaskPopup(task)"
+                                                        x-init="$nextTick(() => lucide.createIcons())">
+                                                        
+                                                        <div x-show="!task.complete && task.badge > 0" class="task-badge" x-text="task.badge"></div>
+                                                        <div class="task-icon shadow-inner" :class="getTaskIconColor(task.id)">
+                                                            <i :data-lucide="task.icon" class="w-5 h-5"></i>
+                                                        </div>
+                                                        <span class="task-label" x-text="task.name"></span>
+                                                    </div>
+                                                </template>
+
+                                                <div 
+                                                    x-show="editMode"
+                                                    class="flex items-center justify-center cursor-pointer mt-1"
+                                                    @click="openAddTaskPopup(module.name, 'Start of Day')"
+                                                >
+                                                    <div class="w-8 h-8 rounded-full bg-blue-100 border border-blue-300 text-blue-600 flex items-center justify-center shadow-sm hover:bg-blue-200 hover:scale-105 transition">
+                                                        <span class="text-xl leading-none font-bold">+</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <div x-show="editMode" class="flex justify-start pl-11 mt-4">
+                                <button @click="openAddGroupPopup('Start of Day')"
+                                    class="add-task-button !bg-blue-600 !text-white !border-blue-700 hover:!bg-blue-700"
+                                >
+                                    <i data-lucide="folder-plus" class="w-4 h-4"></i>
+                                    Add Task Group
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <template x-for="(dayPart, index) in activeWorkflow.customDayParts" :key="dayPart.name + index">
+                        <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden mb-8">
+                            <div class="section-header !py-2 !px-4" @click="toggleDayPart(dayPart.name)">
+                                <div class="flex items-center gap-3">
+                                    <div class="bg-white/10 p-1 rounded-md">
+                                        <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-300" :class="isDayPartExpanded(dayPart.name) ? 'rotate-180' : 'rotate-0'"></i>
+                                    </div>
+                                    <h3 class="text-sm font-semibold" x-text="dayPart.name"></h3>
+                                </div>
+
+                                <div class="flex items-center gap-3">
+                                    <button x-show="editMode" @click.stop="removeDayPart(dayPart.name)" 
+                                        class="p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/20 transition">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                    <div class="text-right">
+                                        <span class="text-xs font-bold text-white" x-text="getDayPartProgress(dayPart.name).countText"></span>
+                                    </div>
+                                    <div class="header-progress-track h-2 w-32 bg-gray-700/50">
+                                        <div class="header-progress-fill" :style="'width:' + getDayPartProgress(dayPart.name).percent + '%'"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div x-show="isDayPartExpanded(dayPart.name)" x-collapse class="p-4 timeline-container bg-white">
+                                <div class="timeline-line"></div>
+
+                                <template x-for="module in getWorkflowModules(dayPart.name)" :key="module.name">
+                                    <div class="relative mb-4 module-icon-wrapper" x-show="hasVisibleTasks(module.name, dayPart.name) || module.customGroup">
+                                        <div class="absolute left-0 top-2">
+                                            <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ring-4 ring-white"
+                                                :class="module.colorClasses">
+                                                <i :data-lucide="module.icon" class="w-5 h-5"></i>
+                                            </div>
+                                        </div>
+
+                                        <div class="flex flex-col gap-2 pl-11">
+                                            <div class="flex items-center gap-4">
+                                                <h4 class="text-sm font-bold text-gray-900" 
+                                                    :contenteditable="editMode"
+                                                    @blur="if(editMode) updateModuleName(module, $event.target.textContent.trim())"
+                                                    x-text="module.name"></h4>
+
+                                                <div class="flex flex-wrap gap-2 p-1 rounded-lg transition-all min-h-[40px] flex-1"
+                                                    @dragover.prevent="dragOverModule($event, module.name, dayPart.name)"
+                                                    @dragenter.prevent="dragEnterModule($event, module.name, dayPart.name)"
+                                                    @dragleave.prevent="dragLeaveModule($event, module.name, dayPart.name)"
+                                                    @drop.prevent="dropToModule($event, module.name, dayPart.name)"
+                                                    :class="{ 'module-drop-target': isDropTarget(module.name, dayPart.name) }">
+
+                                                    <template x-for="task in getModuleTasks(module.name, dayPart.name)" :key="task.id">
+                                                        <div x-show="!task.hidden"
+                                                            :class="getTaskCardClass(task, activeTaskId, draggedTaskId)"
+                                                            class="task-tile"
+                                                            :draggable="editMode"
+                                                            @dragstart="if (editMode) dragStart($event, task.id, 'task')"
+                                                            @dragend="if (editMode) dragEnd($event)"
+                                                            @dragover.prevent.stop="if (editMode) dragOverTask($event, task.id)"
+                                                            @dragleave.prevent.stop="if (editMode) dragLeaveTask($event, task.id)"
+                                                            @drop.prevent.stop="if (editMode) dropOnTask($event, task.id)"
+                                                            @click="openTaskPopup(task)"
+                                                            x-init="$nextTick(() => lucide.createIcons())">
+                                                            
+                                                            <div x-show="!task.complete && task.badge > 0" class="task-badge" x-text="task.badge"></div>
+                                                            <div class="task-icon shadow-inner" :class="getTaskIconColor(task.id)">
+                                                                <i :data-lucide="task.icon" class="w-5 h-5"></i>
+                                                            </div>
+                                                            <span class="task-label" x-text="task.name"></span>
+                                                        </div>
+                                                    </template>
+
+                                                    <div 
+                                                        x-show="editMode"
+                                                        class="flex items-center justify-center cursor-pointer mt-1"
+                                                        @click="openAddTaskPopup(module.name, dayPart.name)"
+                                                    >
+                                                        <div class="w-8 h-8 rounded-full bg-blue-100 border border-blue-300 text-blue-600 flex items-center justify-center shadow-sm hover:bg-blue-200 hover:scale-105 transition">
+                                                            <span class="text-xl leading-none font-bold">+</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                                
+                                <div x-show="editMode" class="flex justify-start pl-11 mt-4">
+                                    <button @click="openAddGroupPopup(dayPart.name)"
+                                        class="add-task-button !bg-blue-600 !text-white !border-blue-700 hover:!bg-blue-700"
+                                    >
+                                        <i data-lucide="folder-plus" class="w-4 h-4"></i>
+                                        Add Task Group
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+
+                    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="section-header !py-2 !px-4" @click="toggleDayPart('Close of Day')">
+                            <div class="flex items-center gap-3">
+                                <div class="bg-white/10 p-1 rounded-md">
+                                    <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-300" :class="isDayPartExpanded('Close of Day') ? 'rotate-180' : 'rotate-0'"></i>
+                                </div>
+                                <h3 class="text-sm font-semibold">Close of Day</h3>
+                            </div>
+
+                            <div class="flex items-center gap-3">
+                                <div class="text-right">
+                                    <span id="close-of-day-count" class="text-xs font-bold text-white" x-text="getDayPartProgress('Close of Day').countText"></span>
+                                </div>
+                                <div class="header-progress-track h-2 w-32 bg-gray-700/50">
+                                    <div id="close-of-day-progress" class="header-progress-fill" :style="'width:' + getDayPartProgress('Close of Day').percent + '%'"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div x-show="isDayPartExpanded('Close of Day')" x-collapse class="p-4 timeline-container bg-white">
+                            <div class="timeline-line"></div>
+
+                            <template x-for="module in getWorkflowModules('Close of Day')" :key="module.name">
+                                <div class="relative mb-4 module-icon-wrapper" x-show="hasVisibleTasks(module.name, 'Close of Day') || module.customGroup">
+                                    <div class="absolute left-0 top-2">
+                                        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ring-4 ring-white"
+                                            :class="module.colorClasses">
+                                            <i :data-lucide="module.icon" class="w-5 h-5"></i>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex flex-col gap-2 pl-11">
+                                        <div class="flex items-center gap-4">
+                                            <h4 class="text-sm font-bold text-gray-900" 
+                                                :contenteditable="editMode"
+                                                @blur="if(editMode) updateModuleName(module, $event.target.textContent.trim())"
+                                                x-text="module.name"></h4>
+
+                                            <div class="flex flex-wrap gap-2 p-1 rounded-lg transition-all min-h-[40px] flex-1"
+                                                @dragover.prevent="dragOverModule($event, module.name, 'Close of Day')"
+                                                @dragenter.prevent="dragEnterModule($event, module.name, 'Close of Day')"
+                                                @dragleave.prevent="dragLeaveModule($event, module.name, 'Close of Day')"
+                                                @drop.prevent="dropToModule($event, module.name, 'Close of Day')"
+                                                :class="{ 'module-drop-target': isDropTarget(module.name, 'Close of Day') }">
+
+                                                <template x-for="task in getModuleTasks(module.name, 'Close of Day')" :key="task.id">
+                                                    <div x-show="!task.hidden"
+                                                        :class="getTaskCardClass(task, activeTaskId, draggedTaskId)"
+                                                        class="task-tile"
+                                                        :draggable="editMode"
+                                                        @dragstart="if (editMode) dragStart($event, task.id, 'task')"
+                                                        @dragend="if (editMode) dragEnd($event)"
+                                                        @dragover.prevent.stop="if (editMode) dragOverTask($event, task.id)"
+                                                        @dragleave.prevent.stop="if (editMode) dragLeaveTask($event, task.id)"
+                                                        @drop.prevent.stop="if (editMode) dropOnTask($event, task.id)"
+                                                        @click="openTaskPopup(task)"
+                                                        x-init="$nextTick(() => lucide.createIcons())">
+                                                        
+                                                        <div x-show="!task.complete && task.badge > 0" class="task-badge" x-text="task.badge"></div>
+                                                        <div class="task-icon shadow-inner" :class="getTaskIconColor(task.id)">
+                                                            <i :data-lucide="task.icon" class="w-5 h-5"></i>
+                                                        </div>
+                                                        <span class="task-label" x-text="task.name"></span>
+                                                    </div>
+                                                </template>
+
+                                                <div 
+                                                    x-show="editMode"
+                                                    class="flex items-center justify-center cursor-pointer mt-1"
+                                                    @click="openAddTaskPopup(module.name, 'Close of Day')"
+                                                >
+                                                    <div class="w-8 h-8 rounded-full bg-blue-100 border border-blue-300 text-blue-600 flex items-center justify-center shadow-sm hover:bg-blue-200 hover:scale-105 transition">
+                                                        <span class="text-xl leading-none font-bold">+</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </template>
+                            
+                            <div x-show="editMode" class="flex justify-start pl-11 mt-4">
+                                <button @click="openAddGroupPopup('Close of Day')"
+                                    class="add-task-button !bg-blue-600 !text-white !border-blue-700 hover:!bg-blue-700"
+                                >
+                                    <i data-lucide="folder-plus" class="w-4 h-4"></i>
+                                    Add Task Group
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div 
+            x-show="sidebarOpen"
+            x-transition:enter="transform transition ease-in-out duration-300 sm:duration-700"
+            x-transition:enter-start="translate-x-full"
+            x-transition:enter-end="translate-x-0"
+            x-transition:leave="transform transition ease-in-out duration-300 sm:duration-700"
+            x-transition:leave-start="translate-x-0"
+            x-transition:leave-end="translate-x-full"
+            @click.away="sidebarOpen = false"
+            class="fixed top-0 right-0 h-full w-80 bg-gray-50 shadow-2xl z-50 overflow-y-auto border-l border-gray-200 pt-14">
+
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-xl font-bold text-gray-900 tracking-tight">Task Library</h2>
+                    <button @click="sidebarOpen = false" class="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <div class="p-3 mb-4 border border-blue-200 bg-blue-50 rounded-xl text-sm text-blue-800">
+                    <div class="flex items-start gap-2">
+                        <i data-lucide="info" class="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5"></i>
+                        <p class="font-medium">Drag any task below into a group to add it to the workflow.</p>
+                    </div>
+                </div>
+
+                <div class="relative mb-6">
+                    <i data-lucide="search" class="absolute left-3 top-3 w-4 h-4 text-gray-400"></i>
+                    <input type="text" x-model.debounce.250ms="taskSearchTerm" 
+                        class="block w-full rounded-xl border-gray-200 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm pl-10 p-2.5 bg-white" 
+                        placeholder="Search tasks...">
+                </div>
+
+                <div class="space-y-6">
+                    <template x-for="(tasks, appName) in groupedSidebarTasks" :key="appName">
+                        <div>
+                            <h3 class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3" x-text="appName"></h3>
+                            <div class="grid grid-cols-3 gap-3">
+                                <template x-for="task in tasks" :key="task.id">
+                                    <div 
+                                        class="task-tile task-tile-sidebar cursor-move p-2 border border-gray-200 rounded-lg bg-white shadow-sm hover:shadow-md transition-shadow"
+                                        :draggable="editMode"
+                                        @dragstart="dragStart($event, task.id, 'sidebarTask')"
+                                        @dragend="dragEnd($event)"
+                                        x-init="$nextTick(() => lucide.createIcons())"
+                                    >
+                                        <div class="task-icon shadow-inner" :class="getTaskIconColor(task.id)">
+                                            <i :data-lucide="task.icon" class="!w-4 !h-4"></i> 
+                                        </div>
+                                        <span class="task-label !text-[0.6rem] font-semibold text-gray-700 mt-1" x-text="task.name"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </div>
+
+        <div x-show="addTaskPopupOpen || addGroupPopupOpen || addWorkflowPopupOpen || assignStoresPopupOpen || addDayPartPopupOpen || dayPartChoicePopupOpen"
+             class="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[200]">
+            
+            <div x-show="addGroupPopupOpen" class="bg-white w-[420px] rounded-xl shadow-xl p-5 space-y-4" @click.stop>
+                <h2 class="text-lg font-semibold text-gray-800 mb-2">Add New Task Group</h2>
+                <div>
+                    <label for="group-name" class="block text-sm font-medium text-gray-700 mb-1">Group Name</label>
+                    <input type="text" id="group-name" x-model="newGroupName" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="e.g., Daily Checklists, Safety Audits">
+                </div>
+                <div class="flex justify-end gap-3 mt-4">
+                    <button @click="addGroupPopupOpen=false; newGroupName='';" class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm font-medium">Close</button>
+                    <button @click="saveNewGroup()" :disabled="!newGroupName.trim()"
+                        class="px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors"
+                        :class="newGroupName.trim() ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-400 cursor-not-allowed'">Save</button>
+                </div>
+            </div>
+
+            <div x-show="addWorkflowPopupOpen" class="bg-white w-[420px] rounded-xl shadow-xl p-5 space-y-4" @click.stop>
+                <h2 class="text-lg font-semibold text-gray-800 mb-2">Create New Workflow</h2>
+                <div>
+                    <label for="workflow-name" class="block text-sm font-medium text-gray-700 mb-1">Workflow Name</label>
+                    <input type="text" id="workflow-name" x-model="newWorkflowName" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="e.g., Daily Management, QSR Standard">
+                </div>
+                <div class="flex justify-end gap-3 mt-4">
+                    <button @click="addWorkflowPopupOpen=false; newWorkflowName='';" class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm font-medium">Cancel</button>
+                    <button @click="saveNewWorkflow()" :disabled="!newWorkflowName.trim()"
+                        class="px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors"
+                        :class="newWorkflowName.trim() ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-400 cursor-not-allowed'">Create Workflow</button>
+                </div>
+            </div>
+
+            <div x-show="dayPartChoicePopupOpen" class="bg-white w-[500px] rounded-xl shadow-xl p-5 space-y-4" @click.stop>
+                <h2 class="text-lg font-semibold text-gray-800 mb-4">Add New Day Part</h2>
+
+                <div class="flex gap-4">
+                    <div @click="dayPartCreationMode = 'blank'; dayPartChoicePopupOpen = false; addDayPartPopupOpen = true;"
+                        class="flex-1 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-blue-500 hover:shadow-md transition-all text-center">
+                        <i data-lucide="file-plus" class="w-8 h-8 mx-auto text-blue-600 mb-2"></i>
+                        <p class="font-semibold text-gray-800">Build from Scratch</p>
+                        <p class="text-xs text-gray-500 mt-1">Start with an empty Day Part.</p>
+                    </div>
+
+                    <div @click="dayPartCreationMode = 'copy'; dayPartChoicePopupOpen = false; addDayPartPopupOpen = true;"
+                        class="flex-1 p-4 border border-gray-200 rounded-xl cursor-pointer hover:border-green-500 hover:shadow-md transition-all text-center">
+                        <i data-lucide="copy-plus" class="w-8 h-8 mx-auto text-green-600 mb-2"></i>
+                        <p class="font-semibold text-gray-800">Copy from Existing</p>
+                        <p class="text-xs text-gray-500 mt-1">Duplicate a Day Part to start.</p>
+                    </div>
+                </div>
+
+                <div class="flex justify-end mt-4">
+                    <button @click="dayPartChoicePopupOpen=false;" class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm font-medium">Cancel</button>
+                </div>
+            </div>
+            
+            <div x-show="addDayPartPopupOpen" class="bg-white w-[420px] rounded-xl shadow-xl p-5 space-y-4" @click.stop>
+                <h2 class="text-lg font-semibold text-gray-800 mb-2" x-text="dayPartCreationMode === 'blank' ? 'Add Workflow Day Part' : 'Copy and Name Day Part'"></h2>
+                
+                <div>
+                    <label for="day-part-name" class="block text-sm font-medium text-gray-700 mb-1">Day Part Name</label>
+                    <input type="text" id="day-part-name" x-model="newDayPartName" 
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="e.g., Lunch Prep, Evening Service">
+                </div>
+
+                <div x-show="dayPartCreationMode === 'copy'">
+                    <label for="source-day-part" class="block text-sm font-medium text-gray-700 mb-1">Copy Tasks From</label>
+                    <select id="source-day-part" x-model="copySourceDayPart"
+                        class="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                    >
+                        <template x-for="name in availableDayPartsToCopy" :key="name">
+                            <option :value="name" x-text="name"></option>
+                        </template>
+                    </select>
+                </div>
+
+                 <div class="flex justify-end gap-3 mt-4">
+                    <button 
+                        @click="addDayPartPopupOpen=false; newDayPartName=''; copySourceDayPart=null;"
+                        class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm font-medium"
+                    >
+                        Cancel
+                    </button>
+
+                    <button 
+                        @click="saveNewDayPart()"
+                        :disabled="!newDayPartName.trim() || (dayPartCreationMode === 'copy' && !copySourceDayPart)"
+                        class="px-4 py-2 rounded-lg text-white text-sm font-medium transition-colors"
+                        :class="(newDayPartName.trim() && (dayPartCreationMode === 'blank' || copySourceDayPart)) ? 'bg-blue-600 hover:bg-blue-700' : 'bg-blue-400 cursor-not-allowed'"
+                    >
+                        Save
+                    </button>
+                </div>
+            </div>
+
+            <div x-show="assignStoresPopupOpen" class="bg-white w-[420px] rounded-xl shadow-xl p-5 space-y-4" @click.stop>
+                <h2 class="text-lg font-semibold text-gray-800 mb-2" x-text="'Assign Stores to: ' + workflows.find(wf => wf.id === targetWorkflowId)?.name"></h2>
+                
+                <div class="max-h-64 overflow-y-auto border rounded-lg p-3 space-y-2">
+                    <template x-for="store in availableStores" :key="store.id">
+                        <label class="flex items-center gap-3 cursor-pointer p-1 hover:bg-gray-50 rounded-lg">
+                            <input type="checkbox" :value="store.id" x-model="selectedStoresToAssign">
+                            <span class="text-sm font-medium" x-text="store.name + ' (' + store.id + ')'"></span>
+                            <span class="ml-auto text-xs" :class="getAssignedStatus(store.id).class" x-text="getAssignedStatus(store.id).text"></span>
+                        </label>
+                    </template>
+                </div>
+
+                <div class="flex justify-end gap-3 mt-4">
+                    <button @click="assignStoresPopupOpen=false; selectedStoresToAssign=[]" class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm font-medium">Cancel</button>
+                    <button @click="saveAssignedStores()" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium">Apply</button>
+                </div>
+            </div>
+
+            <div 
+                x-show="addTaskPopupOpen"
+                class="bg-white w-[420px] rounded-xl shadow-xl p-5 space-y-4" @click.stop
+            >
+                <h2 class="text-lg font-semibold text-gray-800 mb-2">
+                    Add Tasks to <span class="text-blue-600" x-text="addTargetModule"></span>
+                </h2>
+
+                <label class="flex items-center gap-2 mb-2 cursor-pointer">
+                    <input type="checkbox" x-model="selectAllTasks" @change="toggleSelectAllTasks">
+                    <span class="text-sm font-medium">Select All</span>
+                </label>
+
+                <div class="max-h-64 overflow-y-auto border rounded-lg p-3 space-y-3">
+                    <template x-for="task in availableSidebarTasks" :key="task.id">
+                        <label class="flex items-center gap-3 cursor-pointer">
+
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-white shadow-sm"
+                                :class="getTaskIconColor(task.id)">
+                                <i :data-lucide="task.icon" class="w-4 h-4 text-white"></i>
+                            </div>
+
+                            <input type="checkbox" 
+                                class="mr-2" 
+                                :value="task.id"
+                                x-model="selectedTasksToAdd">
+
+                            <span class="text-sm font-medium" x-text="task.name"></span>
+                        </label>
+                    </template>
+                </div>
+
+                <div class="flex justify-end gap-3 mt-4">
+                    <button 
+                        @click="addTaskPopupOpen=false"
+                        class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-sm font-medium"
+                    >
+                        Cancel
+                    </button>
+
+                    <button 
+                        @click="applyAddedTasks()"
+                        class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium"
+                    >
+                        Apply
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        function workflowApp() {
+            // --- Default Task Data matching Screenshots ---
+            const defaultStartOfDayTasks = [
+                // Forecast
+                { id: 'review-forecast-sod', name: 'Review Forecast', app: 'Forecast', category: 'Start of Day', enabled: true, complete: false, icon: 'trending-up', badge: 1 },
+                { id: 'actual-sales-sod', name: 'Actual Sales', app: 'Forecast', category: 'Start of Day', enabled: true, complete: false, icon: 'line-chart', badge: 1 },
+                // Food Management
+                { id: 'ordering-sod', name: 'Ordering', app: 'Food Management', category: 'Start of Day', enabled: true, complete: false, icon: 'shopping-cart', badge: 2 },
+                { id: 'receiving-sod', name: 'Receiving', app: 'Food Management', category: 'Start of Day', enabled: true, complete: true, icon: 'truck', badge: 0 },
+                { id: 'transfer-sod', name: 'Transfer', app: 'Food Management', category: 'Start of Day', enabled: true, complete: true, icon: 'arrow-right-left', badge: 0 },
+                { id: 'waste-sod', name: 'Waste', app: 'Food Management', category: 'Start of Day', enabled: true, complete: true, icon: 'trash-2', badge: 0 },
+                // Labor Management
+                { id: 'schedule-sod', name: 'Schedule', app: 'Labor Management', category: 'Start of Day', enabled: true, complete: true, icon: 'calendar-days', badge: 0 },
+                { id: 'pending-employees-sod', name: 'Pending Employees', app: 'Labor Management', category: 'Start of Day', enabled: true, complete: false, icon: 'users', badge: 4 },
+                { id: 'violation-sod', name: 'Violation', app: 'Labor Management', category: 'Start of Day', enabled: true, complete: false, icon: 'alert-triangle', badge: 1 },
+                { id: 'time-loss-sod', name: 'Time Loss Summary', app: 'Labor Management', category: 'Start of Day', enabled: true, complete: false, icon: 'percent', badge: 4 },
+                { id: 'time-off-request-sod', name: 'Time Off Request', app: 'Labor Management', category: 'Start of Day', enabled: true, complete: false, icon: 'user-x', badge: 2 },
+                { id: 'availability-request-sod', name: 'Availability Request', app: 'Labor Management', category: 'Start of Day', enabled: true, complete: false, icon: 'user-check', badge: 2 },
+                { id: 'swap-shift-approval-sod', name: 'Swap Shift Approval', app: 'Labor Management', category: 'Start of Day', enabled: true, complete: false, icon: 'repeat', badge: 2 },
+                // Payroll Management
+                { id: 'punch-exception-sod', name: 'Punch Exceptions', app: 'Payroll Management', category: 'Start of Day', enabled: true, complete: false, icon: 'fingerprint', badge: 8 },
+                { id: 'punch-review-sod', name: 'Punch Review', app: 'Payroll Management', category: 'Start of Day', enabled: true, complete: false, icon: 'clipboard-check', badge: 2 },
+                { id: 'approvals-sod', name: 'Approvals', app: 'Payroll Management', category: 'Start of Day', enabled: true, complete: false, icon: 'check-square', badge: 22 },
+                { id: 'unbalanced-punches-sod', name: 'Unbalanced Punches', app: 'Payroll Management', category: 'Start of Day', enabled: true, complete: false, icon: 'divide', badge: 2 },
+                { id: 'mismatch-punch-sod', name: 'Mismatch Punch', app: 'Payroll Management', category: 'Start of Day', enabled: true, complete: false, icon: 'x-circle', badge: 1 },
+            ];
+
+            const defaultCloseOfDayTasks = [
+                // Food Management
+                { id: 'ordering-cod', name: 'Ordering', app: 'Food Management', category: 'Close of Day', enabled: true, complete: false, icon: 'shopping-cart', badge: 2 },
+                { id: 'receiving-cod', name: 'Receiving', app: 'Food Management', category: 'Close of Day', enabled: true, complete: true, icon: 'truck', badge: 0 },
+                { id: 'transfer-cod', name: 'Transfer', app: 'Food Management', category: 'Close of Day', enabled: true, complete: true, icon: 'arrow-right-left', badge: 0 },
+                { id: 'waste-cod', name: 'Waste', app: 'Food Management', category: 'Close of Day', enabled: true, complete: true, icon: 'trash-2', badge: 0 },
+                { id: 'inventory-cod', name: 'Inventory', app: 'Zip Inventory', category: 'Close of Day', enabled: true, complete: true, icon: 'clipboard-list', badge: 0 },
+                // Labor Management
+                { id: 'labor-violations-cod', name: 'Labor Violations', app: 'Labor Management', category: 'Close of Day', enabled: true, complete: false, icon: 'alert-triangle', badge: 1 },
+                { id: 'time-loss-cod', name: 'Time Loss Summary', app: 'Labor Management', category: 'Close of Day', enabled: true, complete: false, icon: 'percent', badge: 4 },
+                { id: 'time-off-request-cod', name: 'Time Off Request', app: 'Labor Management', category: 'Close of Day', enabled: true, complete: false, icon: 'user-x', badge: 2 },
+                { id: 'availability-request-cod', name: 'Availability Request', app: 'Labor Management', category: 'Close of Day', enabled: true, complete: false, icon: 'user-check', badge: 2 },
+                { id: 'swap-shift-approval-cod', name: 'Swap Shift Approval', app: 'Labor Management', category: 'Close of Day', enabled: true, complete: false, icon: 'repeat', badge: 2 },
+                // Payroll Management
+                { id: 'punch-exception-cod', name: 'Punch Exception', app: 'Payroll Management', category: 'Close of Day', enabled: true, complete: false, icon: 'fingerprint', badge: 15 },
+                { id: 'review-punches-cod', name: 'Review Punches', app: 'Payroll Management', category: 'Close of Day', enabled: true, complete: false, icon: 'clipboard-check', badge: 2 },
+                { id: 'misc-pay-cod', name: 'Misc Pay', app: 'Payroll Management', category: 'Close of Day', enabled: true, complete: true, icon: 'wallet', badge: 0 },
+                { id: 'approaching-ot-cod', name: 'Approaching OT', app: 'Payroll Management', category: 'Close of Day', enabled: true, complete: true, icon: 'clock-3', badge: 0 },
+                { id: 'payroll-summary-cod', name: 'Payroll Summary', app: 'Payroll Management', category: 'Close of Day', enabled: true, complete: false, icon: 'file-check', badge: 1 },
+                { id: 'unbalanced-punches-cod', name: 'Unbalanced Punches', app: 'Payroll Management', category: 'Close of Day', enabled: true, complete: false, icon: 'divide', badge: 3 },
+                { id: 'mismatch-punch-cod', name: 'Mismatch Punch', app: 'Payroll Management', category: 'Close of Day', enabled: true, complete: false, icon: 'x-circle', badge: 1 },
+            ];
+
+            const randomIcons = ['activity', 'airplay', 'award', 'coffee', 'gift', 'zap', 'shield', 'box', 'rocket', 'cloud', 'hard-hat', 'sun', 'moon', 'calendar-check', 'clipboard-list', 'bar-chart', 'dollar-sign', 'users-round'];
+            const randomColors = ['bg-pink-600', 'bg-indigo-600', 'bg-green-600', 'bg-red-600', 'bg-yellow-600', 'bg-purple-600', 'bg-teal-600'];
+
+            const defaultModuleInfo = {
+                'Forecast': { icon: 'line-chart', colorClasses: 'bg-gradient-to-br from-blue-500 to-blue-600' },
+                'Food Management': { icon: 'shopping-cart', colorClasses: 'bg-gradient-to-br from-purple-500 to-pink-600' },
+                'Labor Management': { icon: 'users-round', colorClasses: 'bg-gradient-to-br from-amber-400 to-orange-500' },
+                'Payroll Management': { icon: 'clock-3', colorClasses: 'bg-gradient-to-br from-indigo-600 to-indigo-700' },
+                'Zip Inventory': { icon: 'file-spreadsheet', colorClasses: 'bg-gradient-to-br from-green-500 to-green-600' },
+            };
+            
+            const allTasks = [...defaultStartOfDayTasks, ...defaultCloseOfDayTasks];
+            
+            return {
+                // --- Core App State ---
+                currentView: 'summary', // 'summary' or 'detail'
+                editMode: false,
+                activeWorkflow: null, // The currently edited workflow object
+                
+                // --- Summary Screen State ---
+                workflows: [
+                    { 
+                        id: 'wf-1', 
+                        name: 'Morning Prep Standard', 
+                        tasks: allTasks, 
+                        customModules: [], 
+                        customDayParts: [], 
+                        storeIds: ['S-101', 'S-102', 'S-103', 'S-107', 'S-108', 'S-109'], 
+                        lastEdited: new Date().toLocaleDateString(),
+                        icon: 'coffee', 
+                        iconColor: 'bg-orange-500', 
+                    },
+                    { 
+                        id: 'wf-2', 
+                        name: 'QSR Daily Checklist', 
+                        tasks: allTasks, 
+                        customModules: [], 
+                        customDayParts: [], 
+                        storeIds: ['S-104', 'S-105'], 
+                        lastEdited: new Date().toLocaleDateString(),
+                        icon: 'zap', 
+                        iconColor: 'bg-yellow-500', 
+                    },
+                    { 
+                        id: 'wf-3', 
+                        name: 'Evening Closeout', 
+                        tasks: defaultCloseOfDayTasks, 
+                        customModules: [], 
+                        customDayParts: [], 
+                        storeIds: ['S-101', 'S-106'], 
+                        lastEdited: new Date().toLocaleDateString(),
+                        icon: 'moon', 
+                        iconColor: 'bg-indigo-500', 
+                    },
+                    { 
+                        id: 'wf-4', 
+                        name: 'Weekly Audit Schedule', 
+                        tasks: [], 
+                        customModules: [], 
+                        customDayParts: [{ name: 'Weekly Audit' }], 
+                        storeIds: ['S-102', 'S-103', 'S-104'], 
+                        lastEdited: new Date().toLocaleDateString(),
+                        icon: 'calendar-check', 
+                        iconColor: 'bg-green-500', 
+                    },
+                ],
+                availableStores: [
+                    { id: 'S-101', name: 'Store 101' }, { id: 'S-102', name: 'Store 102' }, 
+                    { id: 'S-103', name: 'Store 103' }, { id: 'S-104', name: 'Store 104' }, 
+                    { id: 'S-105', name: 'Store 105' }, { id: 'S-106', name: 'Store 106' },
+                    { id: 'S-107', name: 'Store 107' }, { id: 'S-108', name: 'Store 108' },
+                    { id: 'S-109', name: 'Store 109' },
+                ],
+                newWorkflowName: '',
+                addWorkflowPopupOpen: false,
+                assignStoresPopupOpen: false,
+                selectedStoresToAssign: [],
+                targetWorkflowId: null,
+
+                // --- Editor Screen State ---
+                sidebarOpen: false,
+                draggedTaskId: null,
+                dragSourceType: null,
+                dropTarget: { app: null, category: null, hoverTaskId: null },
+                dayPartExpansion: { 'Start of Day': true, 'Close of Day': true },
+                newGroupName: '',
+                newGroupSection: null,
+                addGroupPopupOpen: false,
+                activeTaskId: null,
+                taskSearchTerm: '',
+                availableSidebarTasks: [],
+                addTaskPopupOpen: false,
+                selectedTasksToAdd: [],
+                selectAllTasks: false,
+                addTargetModule: null,
+                addTargetSection: null,
+                
+                // --- Day Part Management State (NEW) ---
+                dayPartChoicePopupOpen: false, 
+                dayPartCreationMode: 'blank', 
+                copySourceDayPart: null, 
+                addDayPartPopupOpen: false,
+                newDayPartName: '',
+                
+                // --- Predefined Data ---
+                predefinedTasks: [
+                    { id: 'review-forecast', name: 'Review Forecast', icon: 'trending-up', app: 'Forecast' },
+                    { id: 'actual-sales', name: 'Actual Sales', icon: 'line-chart', app: 'Forecast' },
+                    { id: 'inventory', name: 'Inventory Count', icon: 'file-spreadsheet', app: 'Zip Inventory' }, 
+                    { id: 'ordering', name: 'Ordering', icon: 'shopping-cart', app: 'Food Management' },
+                    { id: 'receiving', name: 'Receiving', icon: 'truck', app: 'Food Management' },
+                    { id: 'transfer', name: 'Transfer', icon: 'arrow-right-left', app: 'Food Management' },
+                    { id: 'waste', name: 'Waste', icon: 'trash-2', app: 'Food Management' },
+                    { id: 'schedule', name: 'Schedule', icon: 'calendar-days', app: 'Labor Management' },
+                    { id: 'pending-employees', name: 'Pending Employees', icon: 'users', app: 'Labor Management' },
+                    { id: 'violation', name: 'Violation', icon: 'alert-triangle', app: 'Labor Management' },
+                    { id: 'time-loss', name: 'Time Loss Summary', icon: 'percent', app: 'Labor Management' },
+                    { id: 'time-off-request', name: 'Time Off Request', icon: 'user-x', app: 'Labor Management' },
+                    { id: 'availability-request', name: 'Availability Request', icon: 'user-check', app: 'Labor Management' },
+                    { id: 'swap-shift-approval', name: 'Swap Shift Approval', icon: 'repeat', app: 'Labor Management' },
+                    { id: 'punch-exception', name: 'Punch Exception', icon: 'fingerprint', app: 'Payroll Management' },
+                    { id: 'punch-review', name: 'Punch Review', icon: 'clipboard-check', app: 'Payroll Management' },
+                    { id: 'approvals', name: 'Approvals', icon: 'check-square', app: 'Payroll Management' },
+                    { id: 'unbalanced-punches', name: 'Unbalanced Punches', icon: 'divide', app: 'Payroll Management' },
+                    { id: 'mismatch-punch', name: 'Mismatch Punch', icon: 'x-circle', app: 'Payroll Management' },
+                    { id: 'misc-pay', name: 'Misc Pay', icon: 'wallet', app: 'Payroll Management' },
+                    { id: 'approaching-ot', name: 'Approaching OT', icon: 'clock-3', app: 'Payroll Management' },
+                    { id: 'payroll-summary', name: 'Payroll Summary', icon: 'file-check', app: 'Payroll Management' }
+                ],
+                
+                defaultModules: [
+                    { name: 'Forecast', icon: defaultModuleInfo['Forecast'].icon, colorClasses: defaultModuleInfo['Forecast'].colorClasses },
+                    { name: 'Food Management', icon: defaultModuleInfo['Food Management'].icon, colorClasses: defaultModuleInfo['Food Management'].colorClasses },
+                    { name: 'Labor Management', icon: defaultModuleInfo['Labor Management'].icon, colorClasses: defaultModuleInfo['Labor Management'].colorClasses },
+                    { name: 'Payroll Management', icon: defaultModuleInfo['Payroll Management'].icon, colorClasses: defaultModuleInfo['Payroll Management'].colorClasses },
+                ],
+                
+                // --- Utility Functions ---
+                getRandomIcon() {
+                    return randomIcons[Math.floor(Math.random() * randomIcons.length)];
+                },
+                getRandomColorClass() {
+                    return randomColors[Math.floor(Math.random() * randomColors.length)];
+                },
+                getRandomColor() {
+                    const colors = ['#3b82f6', '#8b5cf6', '#10b981', '#f97316', '#ef4444', '#6b7280']; // blue, violet, green, orange, red, gray
+                    return colors[Math.floor(Math.random() * colors.length)];
+                },
+
+                // --- Init & Setup ---
+                init() {
+                    this.workflows.forEach(wf => this.updateTaskProgressForWorkflow(wf));
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                
+                // --- Getters for Active Workflow ---
+                get tasks() { return this.activeWorkflow ? this.activeWorkflow.tasks : []; },
+                get customModules() { return this.activeWorkflow ? this.activeWorkflow.customModules : []; },
+                get customDayParts() { return this.activeWorkflow ? this.activeWorkflow.customDayParts : []; },
+                
+                get availableDayPartsToCopy() {
+                    if (!this.activeWorkflow) return [];
+                    const names = this.activeWorkflow.customDayParts.map(d => d.name);
+                    return ['Start of Day', 'Close of Day', ...names];
+                },
+
+                // --- Workflow Summary Logic ---
+                updateWorkflowName(workflow, newName) {
+                    newName = newName.trim();
+                    if (!newName) {
+                        this.$el.textContent = workflow.name;
+                        alert('Workflow name cannot be empty.');
+                        return;
+                    }
+                    if (this.workflows.some(wf => wf.id !== workflow.id && wf.name.toLowerCase() === newName.toLowerCase())) {
+                        this.$el.textContent = workflow.name;
+                        alert('Workflow name already exists.');
+                        return;
+                    }
+                    workflow.name = newName;
+                },
+
+                openAddWorkflowPopup() { this.newWorkflowName = ''; this.addWorkflowPopupOpen = true; },
+                
+                getWorkflowIconSummary(workflow) {
+                    const moduleMap = {};
+                    
+                    workflow.tasks.forEach(task => {
+                        const appName = task.app;
+                        if (!moduleMap[appName]) {
+                            moduleMap[appName] = {
+                                name: appName,
+                                count: 0,
+                            };
+                        }
+                        moduleMap[appName].count++;
+                    });
+                    
+                    const summary = Object.values(moduleMap).map(module => {
+                        let color;
+                        switch(module.name) {
+                            case 'Forecast': color = 'rgb(59, 130, 246)'; break; 
+                            case 'Food Management': color = 'rgb(168, 85, 247)'; break; 
+                            case 'Labor Management': color = 'rgb(245, 158, 11)'; break; 
+                            case 'Payroll Management': color = 'rgb(79, 70, 229)'; break; 
+                            case 'Zip Inventory': color = 'rgb(34, 197, 94)'; break; 
+                            default: 
+                                const customModule = workflow.customModules.find(m => m.name === module.name);
+                                let colorClass = customModule ? customModule.colorClasses : 'bg-gray-500';
+                                if (colorClass.includes('purple')) color = 'rgb(168, 85, 247)';
+                                else if (colorClass.includes('blue')) color = 'rgb(59, 130, 246)';
+                                else if (colorClass.includes('amber')) color = 'rgb(245, 158, 11)';
+                                else if (colorClass.includes('green')) color = 'rgb(34, 197, 94)';
+                                else if (colorClass.includes('indigo')) color = 'rgb(79, 70, 229)';
+                                else color = 'rgb(107, 114, 128)';
+                        }
+                        return { ...module, color: color };
+                    });
+
+                    return summary.sort((a, b) => a.name.localeCompare(b.name)).slice(0, 5);
+                },
+
+                saveNewWorkflow() {
+                    const name = this.newWorkflowName.trim();
+                    if (!name) return;
+                    
+                    if (this.workflows.some(wf => wf.name.toLowerCase() === name.toLowerCase())) {
+                         alert('Workflow name already exists.');
+                         return;
+                    }
+
+                    const newWorkflow = {
+                        id: 'wf-' + Date.now(),
+                        name: name,
+                        tasks: [...defaultStartOfDayTasks, ...defaultCloseOfDayTasks], 
+                        customModules: [],
+                        customDayParts: [],
+                        storeIds: [],
+                        lastEdited: new Date().toLocaleDateString(),
+                        icon: this.getRandomIcon(), 
+                        iconColor: this.getRandomColorClass(), 
+                    };
+                    this.workflows.push(newWorkflow);
+                    this.updateTaskProgressForWorkflow(newWorkflow);
+
+                    this.addWorkflowPopupOpen = false;
+                    this.newWorkflowName = '';
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                editWorkflow(id) {
+                    this.activeWorkflow = this.workflows.find(wf => wf.id === id);
+                    if (this.activeWorkflow) {
+                        this.currentView = 'detail';
+                        this.editMode = false;
+                        this.sidebarOpen = false;
+                        const allDayParts = ['Start of Day', 'Close of Day', ...this.activeWorkflow.customDayParts.map(d => d.name)];
+                        this.dayPartExpansion = allDayParts.reduce((acc, name) => ({ ...acc, [name]: true }), {});
+                        this.updateTaskProgress();
+                    }
+                },
+                
+                openAssignStoresPopup(id) {
+                    this.targetWorkflowId = id;
+                    const workflow = this.workflows.find(wf => wf.id === id);
+                    if (!workflow) return;
+
+                    this.selectedStoresToAssign = [...workflow.storeIds];
+                    this.assignStoresPopupOpen = true;
+                },
+
+                getAssignedStatus(storeId) {
+                    const isAssignedToTarget = this.workflows.find(wf => wf.id === this.targetWorkflowId)?.storeIds.includes(storeId);
+                    const isAssignedToOther = this.workflows.some(wf => 
+                        wf.id !== this.targetWorkflowId && wf.storeIds.includes(storeId)
+                    );
+                    
+                    if (isAssignedToTarget) return { text: 'Assigned', class: 'text-green-600 font-semibold' };
+                    if (isAssignedToOther) return { text: 'Other WF', class: 'text-yellow-600' };
+                    return { text: 'Unassigned', class: 'text-gray-400' };
+                },
+
+                saveAssignedStores() {
+                    const workflow = this.workflows.find(wf => wf.id === this.targetWorkflowId);
+                    if (workflow) {
+                        workflow.storeIds = this.selectedStoresToAssign;
+                    }
+                    this.assignStoresPopupOpen = false;
+                    this.selectedStoresToAssign = [];
+                },
+
+                // --- Workflow Day Part Logic ---
+                openAddDayPartPopup() {
+                    this.newDayPartName = '';
+                    this.copySourceDayPart = 'Start of Day'; 
+                    this.dayPartChoicePopupOpen = true;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                saveNewDayPart() {
+                    const name = this.newDayPartName.trim();
+                    if (!name) return;
+
+                    const existingDayParts = ['Start of Day', 'Close of Day', ...this.customDayParts.map(d => d.name)];
+                    if (existingDayParts.some(d => d.toLowerCase() === name.toLowerCase())) {
+                        alert(`A Day Part named "${name}" already exists. Please choose a different name.`);
+                        return;
+                    }
+                    
+                    this.activeWorkflow.customDayParts.push({ name: name });
+
+                    if (this.dayPartCreationMode === 'copy' && this.copySourceDayPart) {
+                        const sourceName = this.copySourceDayPart;
+                        
+                        this.activeWorkflow.tasks.filter(t => t.category === sourceName).forEach(sourceTask => {
+                            this.activeWorkflow.tasks.push({
+                                ...sourceTask,
+                                id: sourceTask.id.split('-')[0] + '-' + Date.now() + '-copy',
+                                category: name,
+                                complete: false,
+                                badge: sourceTask.badge > 0 ? Math.floor(Math.random() * 5) + 1 : 0, 
+                            });
+                        });
+
+                        this.activeWorkflow.customModules.filter(m => m.category === sourceName).forEach(sourceModule => {
+                             this.activeWorkflow.customModules.push({
+                                ...sourceModule,
+                                category: name,
+                             });
+                        });
+                    }
+
+                    this.dayPartExpansion[name] = true;
+                    this.addDayPartPopupOpen = false;
+                    this.newDayPartName = '';
+                    this.copySourceDayPart = null;
+                    this.updateTaskProgress();
+                },
+                
+                removeDayPart(dayPartName) {
+                    if (!confirm(`Are you sure you want to remove the entire Day Part: ${dayPartName}? This will remove all associated tasks and groups.`)) {
+                        return;
+                    }
+
+                    this.activeWorkflow.customDayParts = this.activeWorkflow.customDayParts.filter(d => d.name !== dayPartName);
+                    this.activeWorkflow.tasks = this.activeWorkflow.tasks.filter(t => t.category !== dayPartName);
+                    this.activeWorkflow.customModules = this.activeWorkflow.customModules.filter(m => m.category !== dayPartName);
+                    delete this.dayPartExpansion[dayPartName];
+
+                    this.updateTaskProgress();
+                },
+
+                // --- Task Library & Editor Logic ---
+                get groupedSidebarTasks() {
+                    const groups = {};
+                    this.predefinedTasks.forEach(t => {
+                        if (!t.app) return;
+                        if (t.name.toLowerCase().includes(this.taskSearchTerm.toLowerCase())) {
+                            if (!groups[t.app]) groups[t.app] = [];
+                            groups[t.app].push(t);
+                        }
+                    });
+                    return groups;
+                },
+                
+                getTaskIconColor(taskId) {
+                    const task = this.tasks.find(t => t.id === taskId) || this.predefinedTasks.find(t => t.id === taskId.split('-')[0]);
+                    if (!task) return 'bg-gray-100 text-gray-600';
+
+                    switch(task.app) {
+                        case 'Forecast': return 'bg-blue-100 text-blue-600';
+                        case 'Food Management': return 'bg-purple-100 text-purple-600';
+                        case 'Labor Management': return 'bg-amber-100 text-amber-600';
+                        case 'Payroll Management': return 'bg-indigo-100 text-indigo-600';
+                        case 'Zip Inventory': return 'bg-green-100 text-green-600'; 
+                        default: return 'bg-gray-100 text-gray-600';
+                    }
+                },
+                
+                isDayPartExpanded(dayPartName) { return this.dayPartExpansion[dayPartName] === true; },
+                toggleDayPart(dayPartName) { this.dayPartExpansion[dayPartName] = !this.dayPartExpansion[dayPartName]; },
+
+                getDayPartProgress(dayPartName) {
+                    const relevant = this.tasks.filter(t => t.category === dayPartName && t.enabled);
+                    const total = relevant.length;
+                    const done = relevant.filter(t => t.complete).length;
+                    const percent = total === 0 ? 0 : (done / total) * 100;
+                    return {
+                        countText: `${done}/${total}`,
+                        percent: percent.toFixed(0)
+                    };
+                },
+
+                getWorkflowModules(category) {
+                    let hardcoded = this.defaultModules.slice(); 
+
+                    if (category === 'Close of Day' || this.customDayParts.some(dp => dp.name === category)) {
+                        const zipModule = { name: 'Zip Inventory', icon: defaultModuleInfo['Zip Inventory'].icon, colorClasses: defaultModuleInfo['Zip Inventory'].colorClasses };
+                        if (!hardcoded.some(m => m.name === 'Zip Inventory')) {
+                            hardcoded.push(zipModule);
+                        }
+                    }
+                    
+                    const hardcodedModules = hardcoded.map(m => ({ ...m, category: category, customGroup: false }));
+                    
+                    const filteredDefaults = hardcodedModules.filter(m => 
+                        this.getModuleTasks(m.name, category).length > 0
+                    );
+
+                    const custom = this.customModules.filter(m => m.category === category);
+                    
+                    let allModules = [...filteredDefaults, ...custom];
+                    
+                    const uniqueNames = new Set();
+                    allModules = allModules.filter(m => {
+                        const key = m.name + m.category;
+                        if (uniqueNames.has(key)) return false;
+                        uniqueNames.add(key);
+                        return true;
+                    });
+                    
+                    return allModules;
+                },
+
+                getModuleTasks(appName, category) {
+                    return this.tasks.filter(t => t.app === appName && t.category === category && t.enabled);
+                },
+
+                hasVisibleTasks(appName, category) {
+                    return this.getModuleTasks(appName, category).length > 0;
+                },
+                
+                updateTaskProgressForWorkflow(workflow) {
+                    const categories = ['Start of Day', 'Close of Day', ...workflow.customDayParts.map(dp => dp.name)];
+                    categories.forEach(cat => {
+                        const relevant = workflow.tasks.filter(t => t.category === cat && t.enabled);
+                        const total = relevant.length;
+                        const done = relevant.filter(t => t.complete).length;
+                        const percent = total === 0 ? 0 : (done / total) * 100;
+                        
+                        workflow[`${cat.toLowerCase().replace(/\s/g, '')}Progress`] = {
+                            countText: `${done}/${total}`,
+                            percent: percent.toFixed(0)
+                        };
+                    });
+                },
+
+                updateTaskProgress() {
+                    if (!this.activeWorkflow) return;
+                    this.updateTaskProgressForWorkflow(this.activeWorkflow);
+
+                    this.$nextTick(() => {
+                        const categories = ['Start of Day', 'Close of Day', ...this.activeWorkflow.customDayParts.map(dp => dp.name)];
+                        categories.forEach(cat => {
+                            const data = this.activeWorkflow[`${cat.toLowerCase().replace(/\s/g, '')}Progress`];
+                            if (data) {
+                                const bar = document.getElementById(`${cat.toLowerCase().replace(/\s/g, '-')}-progress`);
+                                const txt = document.getElementById(`${cat.toLowerCase().replace(/\s/g, '-')}-count`);
+                                if (bar) bar.style.width = `${data.percent}%`;
+                                if (txt) txt.innerText = data.countText;
+                            }
+                        });
+                        lucide.createIcons();
+                    });
+                },
+
+                // --- Module Editing ---
+                updateModuleName(module, newName) {
+                    newName = newName.trim();
+                    if (!newName) return;
+                    
+                    const oldName = module.name;
+
+                    this.activeWorkflow.tasks.filter(t => t.app === oldName && t.category === module.category)
+                        .forEach(t => t.app = newName);
+
+                    module.name = newName;
+                },
+                
+                // --- Task Drag & Drop Logic (omitted for brevity, assume original logic retained) ---
+                dragStart(evt, id, type) {
+                    if (!this.editMode) return;
+                    this.dragSourceType = type;
+                    this.draggedTaskId = id;
+                    if (type === 'task') { evt.dataTransfer.setData("text/task-id", id); }
+                    if (type === 'sidebarTask') { evt.dataTransfer.setData("text/sidebar-task-id", id); }
+                    evt.dataTransfer.effectAllowed = "move";
+                    evt.currentTarget.classList.add('task-dragging');
+                    this.sidebarOpen = false;
+                },
+
+                dragEnd(evt) {
+                    this.draggedTaskId = null;
+                    this.dragSourceType = null;
+                    this.dropTarget = { app: null, category: null, hoverTaskId: null };
+                    document.querySelectorAll('.task-dragging').forEach(el => el.classList.remove('task-dragging'));
+                    document.querySelectorAll('.task-drop-hover').forEach(el => el.classList.remove('task-drop-hover'));
+                },
+
+                dragOverModule(evt, app, category) {
+                    if (!this.draggedTaskId) return;
+                    evt.preventDefault();
+                    this.dropTarget = { app: app, category: category, hoverTaskId: null };
+                },
+
+                dragEnterModule(evt, app, category) {
+                    if (!this.draggedTaskId) return;
+                    this.dropTarget = { app, category, hoverTaskId: null };
+                    evt.preventDefault();
+                },
+
+                dragLeaveModule(evt) {
+                    if (!evt.currentTarget.contains(evt.relatedTarget)) {
+                        this.dropTarget = { app: null, category: null, hoverTaskId: null };
+                    }
+                },
+
+                dragOverTask(evt, taskId) {
+                    if (!this.draggedTaskId || !this.editMode) return;
+                    const task = this.tasks.find(t => t.id === taskId);
+                    if (!task) return;
+                    const app = task.app;
+                    const category = task.category;
+                    if (this.dropTarget.hoverTaskId !== taskId) {
+                        this.dropTarget = { app, category, hoverTaskId: taskId };
+                        document.querySelectorAll('.task-drop-hover').forEach(el => el.classList.remove('task-drop-hover'));
+                        evt.currentTarget.classList.add('task-drop-hover');
+                    }
+                    evt.preventDefault();
+                    evt.dataTransfer.dropEffect = "move";
+                },
+                
+                dropToModule(evt, app, category) {
+                    evt.preventDefault();
+                    const draggedId = this.draggedTaskId;
+                    if (!draggedId) return;
+
+                    if (this.dragSourceType === 'sidebarTask') {
+                        const sidebarTask = this.predefinedTasks.find(t => t.id === draggedId);
+                        if (!sidebarTask) return;
+                        this.activeWorkflow.tasks.push({
+                            id: sidebarTask.id + '-' + Date.now(),
+                            name: sidebarTask.name,
+                            icon: sidebarTask.icon,
+                            app: app,
+                            category: category,
+                            enabled: true,
+                            hidden: false,
+                            complete: false,
+                            badge: Math.floor(Math.random() * 5),
+                        });
+                        this.dragEnd();
+                        this.updateTaskProgress();
+                        return;
+                    }
+
+                    const index = this.tasks.findIndex(t => t.id === draggedId);
+                    if (index === -1) return;
+                    this.tasks[index].app = app;
+                    this.tasks[index].category = category;
+                    const [moved] = this.activeWorkflow.tasks.splice(index, 1);
+                    this.activeWorkflow.tasks.push(moved); 
+                    this.dragEnd();
+                    this.updateTaskProgress();
+                },
+
+                dropOnTask(evt, targetTaskId) {
+                    evt.preventDefault();
+                    const draggedId = this.draggedTaskId;
+                    if (!draggedId || draggedId === targetTaskId) return;
+                    const draggedIndex = this.tasks.findIndex(t => t.id === draggedId);
+                    const targetIndex = this.tasks.findIndex(t => t.id === targetTaskId);
+                    const targetTask = this.tasks[targetIndex];
+                    if (!targetTask) return;
+
+                    if (this.dragSourceType === 'sidebarTask') {
+                        const sidebarTask = this.predefinedTasks.find(t => t.id === draggedId);
+                        if (!sidebarTask) return;
+                        const newTask = {
+                            id: sidebarTask.id + '-' + Date.now(),
+                            name: sidebarTask.name,
+                            icon: sidebarTask.icon,
+                            app: targetTask.app,
+                            category: targetTask.category,
+                            enabled: true,
+                            hidden: false,
+                            complete: false,
+                            badge: Math.floor(Math.random() * 5),
+                        };
+                        this.activeWorkflow.tasks.splice(targetIndex, 0, newTask);
+                        this.dragEnd();
+                        this.updateTaskProgress();
+                        return;
+                    }
+
+                    if (draggedIndex === -1 || targetIndex === -1) return;
+                    const draggedTask = this.tasks[draggedIndex];
+                    draggedTask.app = targetTask.app;
+                    draggedTask.category = targetTask.category;
+                    const [moved] = this.activeWorkflow.tasks.splice(draggedIndex, 1);
+                    let insertIndex = targetIndex;
+                    if (draggedIndex < targetIndex) insertIndex = targetIndex - 1;
+                    this.activeWorkflow.tasks.splice(insertIndex, 0, moved);
+                    this.dragEnd();
+                    this.updateTaskProgress();
+                },
+
+                isDropTarget(app, category) {
+                    return (
+                        this.draggedTaskId &&
+                        this.dropTarget.app === app &&
+                        this.dropTarget.category === category &&
+                        this.dropTarget.hoverTaskId === null
+                    );
+                },
+
+                getTaskCardClass(task, activeId, draggedId) {
+                    return {
+                        'task-tile': true,
+                        'pending': !task.complete,
+                        'complete': !!task.complete,
+                        'task-dragging': draggedId === task.id,
+                    };
+                },
+                
+                // --- Add Group / Add Task Logic ---
+                openAddGroupPopup(section) {
+                    this.newGroupSection = section;
+                    this.newGroupName = '';
+                    this.addGroupPopupOpen = true;
+                },
+
+                saveNewGroup() {
+                    const name = this.newGroupName.trim();
+                    const section = this.newGroupSection;
+                    
+                    if (!name || !section) return;
+
+                    const isDuplicate = this.getWorkflowModules(section).some(m => m.name.toLowerCase() === name.toLowerCase());
+                    if (isDuplicate) {
+                        alert(`A group named "${name}" already exists in ${section}. Please choose a different name.`);
+                        return;
+                    }
+
+                    this.activeWorkflow.customModules.push({
+                        name: name,
+                        icon: this.getRandomIcon(), 
+                        colorClasses: this.getRandomColorClass(), 
+                        category: section,
+                        customGroup: true,
+                    });
+
+                    this.addGroupPopupOpen = false;
+                    this.newGroupName = '';
+                    this.newGroupSection = null;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+                
+                openAddTaskPopup(module, section) {
+                    this.addTargetModule = module;
+                    this.addTargetSection = section;
+                    this.selectedTasksToAdd = [];
+                    this.selectAllTasks = false;
+                    
+                    const tasksInModuleBaseIds = this.getModuleTasks(module, section).map(t => t.id.split('-')[0]); 
+                    this.availableSidebarTasks = this.predefinedTasks.filter(t => !tasksInModuleBaseIds.includes(t.id));
+
+                    this.addTaskPopupOpen = true;
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                toggleSelectAllTasks() {
+                    if (this.selectAllTasks) {
+                        this.selectedTasksToAdd = this.availableSidebarTasks.map(t => t.id);
+                    } else {
+                        this.selectedTasksToAdd = [];
+                    }
+                },
+
+                applyAddedTasks() {
+                    if (!this.addTargetModule || !this.addTargetSection) return;
+                    
+                    this.selectedTasksToAdd.forEach(taskId => {
+                        const sourceTask = this.predefinedTasks.find(t => t.id === taskId);
+
+                        if (sourceTask) {
+                            this.activeWorkflow.tasks.push({
+                                id: sourceTask.id + '-' + Date.now(), 
+                                name: sourceTask.name,
+                                icon: sourceTask.icon,
+                                app: this.addTargetModule,
+                                category: this.addTargetSection,
+                                enabled: true,
+                                hidden: false,
+                                complete: false,
+                                badge: Math.floor(Math.random() * 5),
+                            });
+                        }
+                    });
+
+                    this.addTaskPopupOpen = false;
+                    this.selectedTasksToAdd = [];
+                    this.selectAllTasks = false;
+                    this.updateTaskProgress();
+                },
+                
+                openTaskPopup(task) {
+                    alert(`Details for Task: ${task.name}\n\nTask ID: ${task.id}\nApp/Group: ${task.app}\nSection: ${task.category}\n\nThis would normally open a detailed popup.`);
+                },
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html>
