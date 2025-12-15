@@ -66,7 +66,9 @@
         .rotate-180 { transform: rotate(180deg); transition: transform 0.3s; }
         
         /* Task Tile Styles */
-        .task-tile { width: 70px; min-height: 40px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; position: relative; cursor: pointer; padding: 4px 0; background: transparent !important; border: none !important; box-shadow: none !important; transition: transform .15s ease, opacity .2s ease; }
+        .task-tile { 
+            width: 70px; min-height: 40px; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; position: relative; cursor: pointer; padding: 4px 0; background: transparent !important; border: none !important; box-shadow: none !important; transition: transform .15s ease, opacity .2s ease; 
+        }
         .task-tile:hover { transform: translateY(-2px); }
         /* MODIFIED: task-badge hidden */
         .task-tile .task-badge { display: none !important; }
@@ -74,12 +76,36 @@
         .task-tile .task-icon { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #d1fae5 !important; color: #059669 !important; }
 
         .task-tile .task-label { margin-top: 4px; font-size: 0.65rem; font-weight: 600; color: #374151; text-align: center; line-height: 1.1; max-width: 70px; white-space: normal; }
-        .pending .task-icon { background: #d1fae5 !important; color: #059669 !important; }
+        .pending .task-icon { background: #fee2e2 !important; color: #ef4444 !important; } /* Use Red for Pending */
         .complete .task-icon { background: #d1fae5 !important; color: #059669 !important; }
         .task-dragging { opacity: 0.4 !important; transform: scale(1.05) !important; }
         .module-drop-target { outline: 3px dashed rgba(59,130,246,0.5); border-radius: 10px; transition: outline-color 0.12s ease; background-color: rgba(59,130,246,0.05); }
         .task-drop-hover { outline: 2px solid #3b82f6 !important; box-shadow: 0 0 0 4px rgba(59,130,246,0.3) !important; transform: translateY(-2px); }
+
+        /* MANDATORY TASK STYLING */
+        .task-tile.mandatory-card .task-icon {
+            border: 2px solid #f97316; /* Orange ring for mandatory */
+        }
         
+        /* Mandatory Icon Badge */
+        .mandatory-card .mandatory-badge {
+            position: absolute;
+            bottom: -3px; /* Position bottom-right */
+            right: -3px;
+            width: 12px;
+            height: 12px;
+            background-color: #f97316; /* Orange background */
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.6rem;
+            font-weight: 700;
+            border: 2px solid white;
+            z-index: 10;
+        }
+
         /* Module Icon Styling (Refined Vertical Alignment) */
         .module-icon-wrapper { padding-left: 0 !important; }
         /* Adjusted left offset to perfectly center the 34px icon container over the 2px line at left: 18px (18 - 17 = 1) */
@@ -258,6 +284,35 @@
             background-color: rgba(255, 255, 255, 0.1);
         }
         
+        /* Custom Context Menu Styling (for right-click menu) */
+        .custom-context-menu {
+            position: fixed; /* Must be fixed for correct positioning */
+            background: white;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            padding: 4px 0;
+            z-index: 1000;
+            min-width: 180px;
+        }
+
+        .custom-context-menu button {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+            padding: 8px 12px;
+            text-align: left;
+            font-size: 0.85rem;
+            color: #4b5563;
+            transition: background-color 0.1s;
+        }
+
+        .custom-context-menu button:hover {
+            background-color: #f3f4f6;
+            color: #1f2937;
+        }
+        
     </style>
 </head>
 <body class="bg-gray-50">
@@ -299,7 +354,29 @@
 
         <div class="main-layout">
             <div class="flex-1 px-8 pb-16 w-full max-w-[1600px] mx-auto pt-6">
+                
+                <div x-show="contextMenuOpen" 
+                     @click.outside="closeContextMenu()"
+                     x-transition.opacity
+                     class="custom-context-menu no-print"
+                     :style="`top: ${contextMenuY}px; left: ${contextMenuX}px;`">
 
+                    <template x-if="contextMenuTargetTask && editMode">
+                        <div>
+                            <button @click="toggleMandatory(contextMenuTargetTask.id)">
+                                <i :data-lucide="contextMenuTargetTask.mandatory ? 'star-off' : 'star'" class="w-4 h-4 text-orange-600"></i>
+                                <span x-text="contextMenuTargetTask.mandatory ? 'Unmark as Mandatory' : 'Mark as Mandatory'"></span>
+                            </button>
+
+                            <hr class="my-1 border-gray-100">
+
+                            <button @click="removeTask(contextMenuTargetTask.id)">
+                                <i data-lucide="trash-2" class="w-4 h-4 text-red-600"></i>
+                                <span>Remove Task</span>
+                            </button>
+                        </div>
+                    </template>
+                </div>
                 <div x-show="currentView === 'summary'">
                     <h2 class="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
                         <i data-lucide="layout-dashboard" class="w-6 h-6 text-blue-600"></i>
@@ -468,12 +545,16 @@
                                                             @dragleave.prevent.stop="if (editMode && !activeWorkflow.isDefault) dragLeaveTask($event, task.id)"
                                                             @drop.prevent.stop="if (editMode && !activeWorkflow.isDefault) dropOnTask($event, task.id)"
                                                             @click="openTaskPopup(task)"
+                                                            @contextmenu.prevent="if (editMode && !activeWorkflow.isDefault) openContextMenu($event, task)"
                                                             x-init="$nextTick(() => lucide.createIcons())">
                                                             
                                                             <div x-show="false" class="task-badge" x-text="task.badge"></div>
                                                             <div class="task-icon shadow-inner" :class="getTaskIconColor(task.id)">
                                                                 <i :data-lucide="task.icon" class="w-5 h-5"></i>
                                                             </div>
+                                                            
+                                                            <i x-show="task.mandatory" data-lucide="alert-circle" class="mandatory-badge w-3 h-3 text-white"></i>
+
                                                             <span class="task-label" x-text="task.name"></span>
                                                         </div>
                                                     </template>
@@ -574,12 +655,14 @@
                                                                 @dragleave.prevent.stop="if (editMode && !activeWorkflow.isDefault) dragLeaveTask($event, task.id)"
                                                                 @drop.prevent.stop="if (editMode && !activeWorkflow.isDefault) dropOnTask($event, task.id)"
                                                                 @click="openTaskPopup(task)"
+                                                                @contextmenu.prevent="if (editMode && !activeWorkflow.isDefault) openContextMenu($event, task)"
                                                                 x-init="$nextTick(() => lucide.createIcons())">
                                                                 
                                                                 <div x-show="false" class="task-badge" x-text="task.badge"></div>
                                                                 <div class="task-icon shadow-inner" :class="getTaskIconColor(task.id)">
                                                                 <i :data-lucide="task.icon" class="w-5 h-5"></i>
                                                                 </div>
+                                                                <i x-show="task.mandatory" data-lucide="alert-circle" class="mandatory-badge w-3 h-3 text-white"></i>
                                                                 <span class="task-label" x-text="task.name"></span>
                                                             </div>
                                                         </template>
@@ -674,12 +757,15 @@
                                                             @dragleave.prevent.stop="if (editMode && !activeWorkflow.isDefault) dragLeaveTask($event, task.id)"
                                                             @drop.prevent.stop="if (editMode && !activeWorkflow.isDefault) dropOnTask($event, task.id)"
                                                             @click="openTaskPopup(task)"
+                                                            @contextmenu.prevent="if (editMode && !activeWorkflow.isDefault) openContextMenu($event, task)"
                                                             x-init="$nextTick(() => lucide.createIcons())">
                                                             
                                                             <div x-show="false" class="task-badge" x-text="task.badge"></div>
                                                             <div class="task-icon shadow-inner" :class="getTaskIconColor(task.id)">
                                                                 <i :data-lucide="task.icon" class="w-5 h-5"></i>
                                                             </div>
+                                                            <i x-show="task.mandatory" data-lucide="alert-circle" class="mandatory-badge w-3 h-3 text-white"></i>
+
                                                             <span class="task-label" x-text="task.name"></span>
                                                         </div>
                                                     </template>
@@ -820,6 +906,7 @@
                                         <div class="task-icon shadow-inner" :class="getTaskIconColor(task.id)">
                                             <i :data-lucide="task.icon" class="!w-4 !h-4"></i> 
                                         </div>
+                                        <i x-show="task.mandatory" data-lucide="alert-circle" class="mandatory-badge w-3 h-3 text-white"></i>
                                         <span class="task-label !text-[0.6rem] font-semibold text-gray-700 mt-1" x-text="task.name"></span>
                                     </div>
                                 </template>
@@ -1060,7 +1147,15 @@
         
         {
 
-            
+            // --- NEW STATE FOR CONTEXT MENU ---
+            const newContextMenuState = {
+                contextMenuOpen: false,
+                contextMenuTargetTask: null,
+                contextMenuX: 0,
+                contextMenuY: 0,
+            };
+            // --- END NEW STATE ---
+
 
             // --- Dummy Report Data (Simplified for Audit Trail) ---
             const reportDummyData = [
@@ -1075,32 +1170,32 @@
             // --- Default Task Data matching Screenshots ---
             const allSystemTasks = [
                 // Forecast
-                { id: 'review-forecast', name: 'Review Forecast', app: 'Forecast', category: 'General', enabled: true, complete: false, icon: 'trending-up', badge: 1 },
-                { id: 'actual-sales', name: 'Actual Sales', app: 'Forecast', category: 'General', enabled: true, complete: false, icon: 'line-chart', badge: 1 },
+                { id: 'review-forecast', name: 'Review Forecast', app: 'Forecast', category: 'General', enabled: true, complete: false, icon: 'trending-up', badge: 1, mandatory: false },
+                { id: 'actual-sales', name: 'Actual Sales', app: 'Forecast', category: 'General', enabled: true, complete: false, icon: 'line-chart', badge: 1, mandatory: false },
                 // Food Management
-                { id: 'ordering', name: 'Ordering', app: 'Food Management', category: 'General', enabled: true, complete: false, icon: 'shopping-cart', badge: 2 },
-                { id: 'receiving', name: 'Receiving', app: 'Food Management', category: 'General', enabled: true, complete: true, icon: 'truck', badge: 0 },
-                { id: 'transfer', name: 'Transfer', app: 'Food Management', category: 'General', enabled: true, complete: true, icon: 'arrow-right-left', badge: 0 },
-                { id: 'waste', name: 'Waste', app: 'Food Management', category: 'General', enabled: true, complete: true, icon: 'trash-2', badge: 0 },
+                { id: 'ordering', name: 'Ordering', app: 'Food Management', category: 'General', enabled: true, complete: false, icon: 'shopping-cart', badge: 2, mandatory: true },
+                { id: 'receiving', name: 'Receiving', app: 'Food Management', category: 'General', enabled: true, complete: true, icon: 'truck', badge: 0, mandatory: false },
+                { id: 'transfer', name: 'Transfer', app: 'Food Management', category: 'General', enabled: true, complete: true, icon: 'arrow-right-left', badge: 0, mandatory: false },
+                { id: 'waste', name: 'Waste', app: 'Food Management', category: 'General', enabled: true, complete: true, icon: 'trash-2', badge: 0, mandatory: true },
                 // Labor Management
-                { id: 'schedule', name: 'Schedule', app: 'Labor Management', category: 'General', enabled: true, complete: true, icon: 'calendar-days', badge: 0 },
-                { id: 'pending-employees', name: 'Pending Employees', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'users', badge: 4 },
-                { id: 'violation', name: 'Violation', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'alert-triangle', badge: 1 },
-                { id: 'time-loss', name: 'Time Loss Summary', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'percent', badge: 4 },
-                { id: 'time-off-request', name: 'Time Off Request', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'user-x', badge: 2 },
-                { id: 'availability-request', name: 'Availability Request', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'user-check', badge: 2 },
-                { id: 'swap-shift-approval', name: 'Swap Shift Approval', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'repeat', badge: 2 },
+                { id: 'schedule', name: 'Schedule', app: 'Labor Management', category: 'General', enabled: true, complete: true, icon: 'calendar-days', badge: 0, mandatory: true },
+                { id: 'pending-employees', name: 'Pending Employees', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'users', badge: 4, mandatory: false },
+                { id: 'violation', name: 'Violation', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'alert-triangle', badge: 1, mandatory: true },
+                { id: 'time-loss', name: 'Time Loss Summary', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'percent', badge: 4, mandatory: false },
+                { id: 'time-off-request', name: 'Time Off Request', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'user-x', badge: 2, mandatory: false },
+                { id: 'availability-request', name: 'Availability Request', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'user-check', badge: 2, mandatory: false },
+                { id: 'swap-shift-approval', name: 'Swap Shift Approval', app: 'Labor Management', category: 'General', enabled: true, complete: false, icon: 'repeat', badge: 2, mandatory: false },
                 // Payroll Management
-                { id: 'punch-exception', name: 'Punch Exceptions', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'fingerprint', badge: 8 },
-                { id: 'punch-review', name: 'Punch Review', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'clipboard-check', badge: 2 },
-                { id: 'approvals', name: 'Approvals', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'check-square', badge: 22 },
-                { id: 'unbalanced-punches', name: 'Unbalanced Punches', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'divide', badge: 2 },
-                { id: 'mismatch-punch', name: 'Mismatch Punch', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'x-circle', badge: 1 },
-                { id: 'misc-pay', name: 'Misc Pay', app: 'Payroll Management', category: 'General', enabled: true, complete: true, icon: 'wallet', badge: 0 },
-                { id: 'approaching-ot', name: 'Approaching OT', app: 'Payroll Management', category: 'General', enabled: true, complete: true, icon: 'clock-3', badge: 0 },
-                { id: 'payroll-summary', name: 'Payroll Summary', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'file-check', badge: 1 },
+                { id: 'punch-exception', name: 'Punch Exceptions', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'fingerprint', badge: 8, mandatory: true },
+                { id: 'punch-review', name: 'Punch Review', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'clipboard-check', badge: 2, mandatory: false },
+                { id: 'approvals', name: 'Approvals', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'check-square', badge: 22, mandatory: false },
+                { id: 'unbalanced-punches', name: 'Unbalanced Punches', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'divide', badge: 2, mandatory: false },
+                { id: 'mismatch-punch', name: 'Mismatch Punch', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'x-circle', badge: 1, mandatory: false },
+                { id: 'misc-pay', name: 'Misc Pay', app: 'Payroll Management', category: 'General', enabled: true, complete: true, icon: 'wallet', badge: 0, mandatory: true },
+                { id: 'approaching-ot', name: 'Approaching OT', app: 'Payroll Management', category: 'General', enabled: true, complete: true, icon: 'clock-3', badge: 0, mandatory: false },
+                { id: 'payroll-summary', name: 'Payroll Summary', app: 'Payroll Management', category: 'General', enabled: true, complete: false, icon: 'file-check', badge: 1, mandatory: true },
                 // Zip Inventory
-                { id: 'inventory', name: 'Inventory', app: 'Zip Inventory', category: 'General', enabled: true, complete: true, icon: 'clipboard-list', badge: 0 },
+                { id: 'inventory', name: 'Inventory', app: 'Zip Inventory', category: 'General', enabled: true, complete: true, icon: 'clipboard-list', badge: 0, mandatory: true },
             ];
 
             // Helper function to create a unique ID for a task copy
@@ -1114,6 +1209,7 @@
                     badge: 0, // REMOVED COUNT OVER TASK ICON
                     enabled: true,
                     hidden: false,
+                    mandatory: task.mandatory || false, // Include mandatory status
                 };
             }
 
@@ -1161,11 +1257,7 @@
 
             const allDefaultWorkflowTasks = [...initialStartOfDayTasks, ...initialCloseOfDayTasks];
 
-            const predefinedSidebarTasks = allSystemTasks.filter(t => [
-                'review-forecast', 'actual-sales', 'ordering', 'receiving', 'transfer', 'waste',
-                'schedule', 'pending-employees', 'violation', 'punch-exception', 'punch-review', 'inventory'
-            ].includes(t.id));
-
+            const predefinedSidebarTasks = allSystemTasks; // Use all system tasks in the sidebar
 
             const randomIcons = ['activity', 'airplay', 'award', 'coffee', 'gift', 'zap', 'shield', 'box', 'rocket', 'cloud', 'hard-hat', 'sun', 'moon', 'calendar-check', 'clipboard-list', 'bar-chart', 'dollar-sign', 'users-round'];
             const randomColors = ['bg-pink-600', 'bg-indigo-600', 'bg-green-600', 'bg-red-600', 'bg-yellow-600', 'bg-purple-600', 'bg-teal-600'];
@@ -1176,6 +1268,7 @@
                 'Labor Management': { icon: 'users-round', colorClasses: 'bg-gradient-to-br from-amber-400 to-orange-500' },
                 'Payroll Management': { icon: 'clock-3', colorClasses: 'bg-gradient-to-br from-indigo-600 to-indigo-700' },
                 'Zip Inventory': { icon: 'file-spreadsheet', colorClasses: 'bg-gradient-to-br from-green-500 to-green-600' },
+                'General': { icon: 'layout-grid', colorClasses: 'bg-gradient-to-br from-gray-500 to-gray-600' }, // For tasks without explicit app in original structure
             };
             
             return {
@@ -1185,7 +1278,11 @@
                 editMode: false,
                 activeWorkflow: null, 
                 hideStartOfDay: false,
-hideCloseOfDay: false,
+                hideCloseOfDay: false,
+                
+                // --- CONTEXT MENU STATE (NEW) ---
+                ...newContextMenuState,
+                // --- END CONTEXT MENU STATE ---
                 
                 // --- Summary Screen State ---
                 workflows: [
@@ -1313,6 +1410,7 @@ hideCloseOfDay: false,
                         badge: 0, // REMOVED COUNT OVER TASK ICON
                         enabled: true,
                         hidden: false,
+                        mandatory: task.mandatory || false,
                     };
                 },
                 
@@ -1321,6 +1419,65 @@ hideCloseOfDay: false,
                     this.workflows.forEach(wf => this.updateTaskProgressForWorkflow(wf));
                     this.$nextTick(() => lucide.createIcons());
                 },
+
+                // --- Context Menu Functions (NEW) ---
+                openContextMenu(event, task) {
+                    if (!this.editMode || this.activeWorkflow.isDefault) return; 
+
+                    event.preventDefault(); 
+                    
+                    this.contextMenuTargetTask = task;
+                    
+                    // Position the menu
+                    this.contextMenuX = event.clientX;
+                    this.contextMenuY = event.clientY;
+                    
+                    this.contextMenuOpen = true;
+                    
+                    this.$nextTick(() => lucide.createIcons());
+                },
+
+                closeContextMenu() {
+                    this.contextMenuOpen = false;
+                    this.contextMenuTargetTask = null;
+                },
+
+                toggleMandatory(taskId) {
+                    const task = this.tasks.find(t => t.id === taskId);
+                    if (task) {
+                        task.mandatory = !task.mandatory;
+                        this.updateTaskProgress(); // Recalculate progress/re-render
+                    }
+                    this.closeContextMenu();
+                },
+                
+                removeTask(taskId) {
+                    if (!this.activeWorkflow || this.activeWorkflow.isDefault) return;
+                    if (!confirm("Are you sure you want to remove this task?")) {
+                        this.closeContextMenu();
+                        return;
+                    }
+
+                    const taskToRemove = this.tasks.find(t => t.id === taskId);
+                    if (!taskToRemove) return;
+                    
+                    this.activeWorkflow.tasks = this.activeWorkflow.tasks.filter(t => t.id !== taskId);
+
+                    const taskApp = taskToRemove.app;
+                    const taskCategory = taskToRemove.category;
+                    
+                    // Check if this module is now empty and is a custom group
+                    const isCustom = this.activeWorkflow.customModules.some(m => m.name === taskApp && m.category === taskCategory && m.customGroup);
+                    
+                    if (isCustom && this.getModuleTasks(taskApp, taskCategory).length === 0) {
+                         this.activeWorkflow.customModules = this.activeWorkflow.customModules.filter(m => !(m.name === taskApp && m.category === taskCategory));
+                    }
+
+                    this.closeContextMenu();
+                    this.updateTaskProgress();
+                },
+                // --- End Context Menu Functions ---
+
 
                 // --- Workflow Name Editing ---
                 updateWorkflowName(newName) {
@@ -1526,6 +1683,7 @@ hideCloseOfDay: false,
                                 id: task.id + '-' + Date.now() + Math.floor(Math.random() * 1000), 
                                 complete: false,
                                 badge: 0, // REMOVED COUNT OVER TASK ICON
+                                mandatory: task.mandatory || false,
                             }));
                             initialCustomModules = JSON.parse(JSON.stringify(sourceWorkflow.customModules));
                             initialCustomDayParts = JSON.parse(JSON.stringify(sourceWorkflow.customDayParts));
@@ -1695,6 +1853,7 @@ hideCloseOfDay: false,
                             newTask.category = name; // Assign to the new Day Part
                             newTask.complete = false;
                             newTask.badge = 0; // REMOVED COUNT OVER TASK ICON
+                            newTask.mandatory = task.mandatory || false; // Keep mandatory status
                             this.activeWorkflow.tasks.push(newTask);
                         });
                     }
@@ -1715,6 +1874,9 @@ hideCloseOfDay: false,
         this.activeWorkflow.tasks = this.activeWorkflow.tasks.filter(
             t => t.category !== "Start of Day"
         );
+        this.activeWorkflow.customModules = this.activeWorkflow.customModules.filter(
+            m => m.category !== "Start of Day"
+        );
         return;
     }
 
@@ -1723,6 +1885,9 @@ hideCloseOfDay: false,
         // Remove tasks
         this.activeWorkflow.tasks = this.activeWorkflow.tasks.filter(
             t => t.category !== "Close of Day"
+        );
+        this.activeWorkflow.customModules = this.activeWorkflow.customModules.filter(
+            m => m.category !== "Close of Day"
         );
         return;
     }
@@ -1734,6 +1899,12 @@ hideCloseOfDay: false,
     this.activeWorkflow.tasks = this.activeWorkflow.tasks.filter(
         t => t.category !== dayPartName
     );
+    
+    this.activeWorkflow.customModules = this.activeWorkflow.customModules.filter(
+        m => m.category !== dayPartName
+    );
+    
+    this.updateTaskProgress(); // Update progress bar
 },
 
                 // --- Task Logic (Safely handle property access) ---
@@ -1743,8 +1914,10 @@ hideCloseOfDay: false,
                         this.predefinedTasks.forEach(t => {
                             if (!t.app) return;
                             if (t.name.toLowerCase().includes(this.taskSearchTerm.toLowerCase())) {
-                                if (!groups[t.app]) groups[t.app] = [];
-                                groups[t.app].push(t);
+                                // Group by base app name
+                                const appName = t.app.split(' ')[0]; 
+                                if (!groups[appName]) groups[appName] = [];
+                                groups[appName].push(t);
                             }
                         });
                     }
@@ -1752,7 +1925,19 @@ hideCloseOfDay: false,
                 },
                 
                 getTaskIconColor(taskId) {
-                    return 'bg-green-100 text-green-600';
+                    // Simple color for sidebar/add task popup
+                    const task = this.predefinedTasks.find(t => t.id === taskId.split('-')[0]);
+                    
+                    if (task) {
+                         const app = task.app;
+                         if (app === 'Forecast') return 'bg-blue-100 text-blue-600';
+                         if (app === 'Food Management') return 'bg-purple-100 text-purple-600';
+                         if (app === 'Labor Management') return 'bg-amber-100 text-amber-600';
+                         if (app === 'Payroll Management') return 'bg-indigo-100 text-indigo-600';
+                         if (app === 'Zip Inventory') return 'bg-green-100 text-green-600';
+                         return 'bg-gray-100 text-gray-600';
+                    }
+                    return 'bg-gray-100 text-gray-600';
                 },
                 
                 isDayPartExpanded(dayPartName) { return this.dayPartExpansion[dayPartName] === true; },
@@ -1771,7 +1956,7 @@ hideCloseOfDay: false,
                     // 2. Identify modules that have tasks assigned in this category (system or user-added)
                     const modulesFromTasks = this.generateModulesFromTasks(this.activeWorkflow.tasks, category);
 
-                    // 3. Add default system modules (Forecast, Food, Labor, Payroll, Zip Inventory) 
+                    // 3. Add default system modules 
                     const isMajorDayPart = (category === 'Start of Day' || category === 'Close of Day');
                     
                     const systemModules = [...this.defaultModules];
@@ -1782,16 +1967,12 @@ hideCloseOfDay: false,
                         
                         if (hasTaskModule && !isAlreadyInCustomGroups) {
                             allModules.push({ ...m, category: category, customGroup: false });
-                        } else if (isMajorDayPart && hasTaskModule && !isAlreadyInCustomGroups) {
-                             allModules.push({ ...m, category: category, customGroup: false });
-                        } else if (this.activeWorkflow.isDefault && isMajorDayPart && !isAlreadyInCustomGroups) {
-                             // Always show for default template
-                             allModules.push({ ...m, category: category, customGroup: false });
-                        }
+                        } 
                     });
 
                     // 4. Deduplication by name, giving priority to user-created custom groups.
                     const uniqueNames = new Set();
+                    // Reverse the array to ensure user-added custom modules are seen first if names collide (though they shouldn't)
                     allModules = allModules.reverse().filter(m => {
                         if (uniqueNames.has(m.name)) return false;
                         uniqueNames.add(m.name);
@@ -1812,6 +1993,7 @@ hideCloseOfDay: false,
                 },
                 
                 updateTaskProgressForWorkflow(workflow) {
+                    // Dummy function for template view, keeps original HTML structure working
                     const categories = ['Start of Day', 'Close of Day', ...workflow.customDayParts.map(dp => dp.name)];
                     categories.forEach(cat => {
                         const catKey = cat.toLowerCase().replace(/\s/g, '').replace(/[^a-z0-9]/g, '');
@@ -1855,6 +2037,7 @@ hideCloseOfDay: false,
                     evt.dataTransfer.effectAllowed = "move";
                     evt.currentTarget.classList.add('task-dragging');
                     this.sidebarOpen = false;
+                    this.closeContextMenu(); // Close menu on drag start
                 },
 
                 dragEnd(evt) {
@@ -1971,6 +2154,7 @@ hideCloseOfDay: false,
                         'pending': !task.complete,
                         'complete': !!task.complete,
                         'task-dragging': draggedId === task.id,
+                        'mandatory-card': !!task.mandatory, // Added mandatory class
                         'cursor-default': this.activeWorkflow && this.activeWorkflow.isDefault,
                     };
                 },
@@ -2091,7 +2275,7 @@ hideCloseOfDay: false,
                 },
                 
                 openTaskPopup(task) {
-                    alert(`Details for Task: ${task.name}\n\nTask ID: ${task.id}\nApp/Group: ${task.app}\nSection: ${task.category}\n\nThis would normally open a detailed popup.`);
+                    alert(`Details for Task: ${task.name}\n\nTask ID: ${task.id}\nApp/Group: ${task.app}\nSection: ${task.category}\nMandatory: ${task.mandatory ? 'Yes' : 'No'}\n\nThis would normally open a detailed popup.`);
                 },
             }
         }
